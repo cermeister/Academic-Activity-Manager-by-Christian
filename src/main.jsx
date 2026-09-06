@@ -1,18 +1,20 @@
 import React, {useEffect, useState} from "react";
 import {createRoot} from "react-dom/client";
-import {BookOpen, CheckCircle2, CircleAlert, Clock3, FileText, FolderOpen, LayoutDashboard, Plus, Search, CalendarDays, Trash2, Pencil, X, Upload, ChevronRight, LockKeyhole, ArrowRight, Eye, EyeOff, LogOut} from "lucide-react";
+import {BookOpen, CheckCircle2, CircleAlert, Clock3, FileText, FolderOpen, LayoutDashboard, Plus, Search, CalendarDays, Trash2, Pencil, X, Upload, ChevronRight, LockKeyhole, ArrowRight, Eye, EyeOff, LogOut, GripVertical} from "lucide-react";
 import {supabase} from "./lib/supabase";
 import "./styles.css";
 
 const seedSubjects = [{id: "s1", name: "Business Finance", code: "FIN 101", color: "#2563eb"}, {id: "s2", name: "Web Development", code: "IT 201", color: "#7c3aed"}];
 const seedItems = [{id: "i1", subjectId: "s1", category: "Module", title: "Module 1 – Introduction to Business Finance", description: "Read the module and review the examples.", deadline: "2026-09-10", priority: "High", status: "Pending", files: []}, {id: "i2", subjectId: "s1", category: "Activity", title: "Activity 1 – Financial Decisions", description: "Answer the guide questions.", deadline: "2026-09-12", priority: "Medium", status: "Pending", files: []}, {id: "i3", subjectId: "s2", category: "Task", title: "HTML/CSS Practice", description: "Create the required webpage.", deadline: "2026-09-18", priority: "High", status: "Pending", files: []}];
 
-const mapSubject = row => ({id: row.id, name: row.name, code: row.code, color: row.color});
+const mapSection = row => ({id: row.id, name: row.name, sortOrder: row.sort_order});
+const mapSubject = row => ({id: row.id, name: row.name, code: row.code, color: row.color, sectionId: row.section_id, sortOrder: row.sort_order});
 const mapItem = row => ({id: row.id, subjectId: row.subject_id, category: row.category, title: row.title, description: row.description || "", deadline: row.deadline, priority: row.priority, status: row.status, submittedAt: row.submitted_at, files: row.files || []});
 
 function App() {
   const [authenticated, setAuthenticated] = useState(() => localStorage.getItem("studyflow-auth") === "true");
   const [subjects, setSubjects] = useState(seedSubjects);
+  const [sections, setSections] = useState([]);
   const [items, setItems] = useState(seedItems);
   const [selected, setSelected] = useState("dashboard");
   const [query, setQuery] = useState("");
@@ -25,13 +27,15 @@ function App() {
     let active = true;
     const loadData = async () => {
       setLoading(true);
-      const [subjectResult, itemResult] = await Promise.all([
-        supabase.from("subjects").select("*").order("created_at"),
+      const [sectionResult, subjectResult, itemResult] = await Promise.all([
+        supabase.from("subject_sections").select("*").order("sort_order"),
+        supabase.from("subjects").select("*").order("sort_order"),
         supabase.from("requirements").select("*").order("deadline")
       ]);
       if (!active) return;
-      if (subjectResult.error || itemResult.error) setDataError(subjectResult.error?.message || itemResult.error?.message || "Could not load your workspace.");
+      if (sectionResult.error || subjectResult.error || itemResult.error) setDataError(sectionResult.error?.message || subjectResult.error?.message || itemResult.error?.message || "Could not load your workspace.");
       else {
+        setSections(sectionResult.data.map(mapSection));
         setSubjects(subjectResult.data.map(mapSubject));
         setItems(itemResult.data.map(mapItem));
       }
@@ -58,11 +62,25 @@ function App() {
     setItems(current => current.filter(item => item.id !== id));
   };
   const saveSubject = async form => {
-    const payload = {name: form.name.trim(), code: form.code.trim() || null, color: form.color};
+    const payload = {name: form.name.trim(), code: form.code.trim() || null, color: form.color, section_id: form.sectionId || sections[0]?.id || null, sort_order: form.sortOrder || 0};
     const result = form.id ? await supabase.from("subjects").update(payload).eq("id", form.id).select().single() : await supabase.from("subjects").insert(payload).select().single();
     if (result.error) throw new Error(result.error.message);
     const subject = mapSubject(result.data);
     setSubjects(current => form.id ? current.map(item => item.id === form.id ? subject : item) : [...current, subject]);
+  };
+  const renameSection = async (section, name) => {
+    const cleanName = name.trim();
+    if (!cleanName || cleanName === section.name) return;
+    const {error} = await supabase.from("subject_sections").update({name: cleanName}).eq("id", section.id);
+    if (error) return setDataError(error.message);
+    setSections(current => current.map(item => item.id === section.id ? {...item, name: cleanName} : item));
+  };
+  const moveSubject = async (subjectId, sectionId) => {
+    const sectionSubjects = subjects.filter(subject => subject.sectionId === sectionId && subject.id !== subjectId);
+    const {data, error} = await supabase.from("subjects").update({section_id: sectionId, sort_order: sectionSubjects.length}).eq("id", subjectId).select().single();
+    if (error) return setDataError(error.message);
+    const moved = mapSubject(data);
+    setSubjects(current => current.map(subject => subject.id === subjectId ? moved : subject));
   };
   const saveItem = async form => {
     const payload = {subject_id: form.subjectId, category: form.category, title: form.title.trim(), description: form.description.trim() || null, deadline: form.deadline, priority: form.priority, status: form.status || "Pending", submitted_at: form.submittedAt || null, files: form.files || []};
@@ -79,7 +97,7 @@ function App() {
       <div className="brand"><div className="brandIcon"><BookOpen size={22}/></div><div><b>StudyFlow</b><span>Academic Manager</span></div></div>
       <button className={`nav ${selected === "dashboard" ? "active" : ""}`} onClick={() => setSelected("dashboard")}><LayoutDashboard size={18}/>Dashboard</button>
       <div className="sideTitle">SUBJECTS</div>
-      {subjects.map(subject => <button key={subject.id} className={`nav ${selected === subject.id ? "active" : ""}`} onClick={() => setSelected(subject.id)}><span className="dot" style={{background: subject.color}}/>{subject.name}</button>)}
+      <SubjectSections sections={sections} subjects={subjects} selected={selected} onSelect={setSelected} onRename={renameSection} onMove={moveSubject}/>
       <button className="addSubject" onClick={() => setModal({type: "subject"})}><Plus size={17}/> Add Subject</button>
       <div className="sidebarBottom"><div className="tip"><Clock3 size={17}/><div><b>Stay ahead</b><p>Complete tasks before they turn red.</p></div></div><button className="logout" onClick={() => {localStorage.removeItem("studyflow-auth"); setAuthenticated(false);}}><LogOut size={16}/>Log out</button></div>
     </aside>
@@ -96,6 +114,20 @@ function App() {
 }
 
 function Login({onLogin}) { const [username, setUsername] = useState(""); const [password, setPassword] = useState(""); const [showPassword, setShowPassword] = useState(false); const [error, setError] = useState(""); const submit = event => {event.preventDefault(); if (username === import.meta.env.VITE_APP_USERNAME && password === import.meta.env.VITE_APP_PASSWORD) onLogin(); else setError("That username or password is not correct.");}; return <div className="loginPage"><div className="loginArtwork"><div className="artTop"><span className="artMark"><BookOpen size={20}/></span><span>StudyFlow</span></div><div className="artCopy"><p className="eyebrow">ACADEMIC ACTIVITY MANAGER</p><h1>Make every deadline feel manageable.</h1><p>One calm place for your subjects, activities, and progress.</p></div><div className="artNote"><CheckCircle2 size={18}/><span>Keep your momentum visible.</span></div></div><main className="loginMain"><div className="loginCard"><div className="loginIcon"><LockKeyhole size={21}/></div><p className="eyebrow">WELCOME BACK</p><h2>Sign in to StudyFlow</h2><p className="loginIntro">Pick up where you left off.</p><form onSubmit={submit}><label>Username<input autoComplete="username" value={username} onChange={event => {setUsername(event.target.value); setError("");}} placeholder="Enter your username" autoFocus/></label><label>Password<div className="passwordField"><input type={showPassword ? "text" : "password"} autoComplete="current-password" value={password} onChange={event => {setPassword(event.target.value); setError("");}} placeholder="Enter your password"/><button type="button" className="passwordToggle" onClick={() => setShowPassword(value => !value)} aria-label={showPassword ? "Hide password" : "Show password"}>{showPassword ? <EyeOff size={17}/> : <Eye size={17}/>}</button></div></label>{error && <p className="loginError" role="alert">{error}</p>}<button className="loginSubmit" type="submit">Sign in <ArrowRight size={18}/></button></form><p className="loginFoot">Your workspace is ready when you are.</p></div></main></div>; }
+function SubjectSections({sections, subjects, selected, onSelect, onRename, onMove}) {
+  const [editing, setEditing] = useState(null);
+  const [draft, setDraft] = useState("");
+  const beginRename = section => {setEditing(section.id); setDraft(section.name);};
+  const finishRename = section => {onRename(section, draft); setEditing(null);};
+  return <div className="subjectSections">{sections.map(section => {
+    const sectionSubjects = subjects.filter(subject => subject.sectionId === section.id).sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
+    return <div className="subjectSection" key={section.id} onDragOver={event => event.preventDefault()} onDrop={event => {event.preventDefault(); const subjectId = event.dataTransfer.getData("subject-id"); if (subjectId) onMove(subjectId, section.id);}}>
+      <div className="sectionHeading">{editing === section.id ? <input value={draft} autoFocus onChange={event => setDraft(event.target.value)} onBlur={() => finishRename(section)} onKeyDown={event => {if (event.key === "Enter") finishRename(section); if (event.key === "Escape") setEditing(null);}}/> : <span>{section.name}</span>}<button className="sectionEdit" onClick={() => beginRename(section)} aria-label={`Rename ${section.name}`}><Pencil size={11}/></button></div>
+      {sectionSubjects.map(subject => <button draggable key={subject.id} className={`nav subjectNav ${selected === subject.id ? "active" : ""}`} onDragStart={event => event.dataTransfer.setData("subject-id", subject.id)} onClick={() => onSelect(subject.id)}><GripVertical className="dragHandle" size={13}/><span className="dot" style={{background: subject.color}}/>{subject.name}</button>)}
+      {!sectionSubjects.length && <div className="dropHint">Drop subjects here</div>}
+    </div>;
+  })}</div>;
+}
 function Stat({icon, label, value}) { return <div className="stat"><span>{icon}</span><div><b>{value}</b><small>{label}</small></div></div>; }
 function SubjectCard({subject, items, onSelect}) { const count = items.filter(item => item.subjectId === subject.id).length; const submitted = items.filter(item => item.subjectId === subject.id && item.status === "Submitted").length; return <div className="subjectCard" onClick={() => onSelect(subject.id)}><span className="subjectIcon" style={{background: subject.color}}><BookOpen size={19}/></span><div className="grow"><b>{subject.name}</b><small>{subject.code || "No code"} · {count} requirements</small><div className="bar"><i style={{width: count ? `${submitted / count * 100}%` : "0%", background: subject.color}}/></div></div><span className="percent">{count ? Math.round(submitted / count * 100) : 0}%</span><ChevronRight size={17}/></div>; }
 function SubjectView({items, onSubmit, onDelete, onEdit}) { const [filter, setFilter] = useState("All"); const shown = items.filter(item => filter === "All" || item.category === filter || item.status === filter).sort((a, b) => a.deadline.localeCompare(b.deadline)); return <section className="panel subjectPanel"><div className="filters">{["All", "Module", "Task", "Activity", "Others", "Pending", "Submitted"].map(value => <button className={filter === value ? "sel" : ""} onClick={() => setFilter(value)} key={value}>{value}</button>)}</div><div className="list">{shown.map(item => <ItemRow key={item.id} x={item} onSubmit={onSubmit} onDelete={onDelete} onEdit={() => onEdit(item)}/>)}</div>{!shown.length && <Empty text="No requirements found."/>}</section>; }
