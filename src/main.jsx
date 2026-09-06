@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from "react";
 import {createRoot} from "react-dom/client";
-import {BookOpen, CheckCircle2, CircleAlert, Clock3, FileText, FolderOpen, LayoutDashboard, Plus, Search, CalendarDays, Trash2, Pencil, X, Upload, ChevronRight} from "lucide-react";
+import {BookOpen, CheckCircle2, CircleAlert, Clock3, FileText, FolderOpen, LayoutDashboard, Plus, Search, CalendarDays, Trash2, Pencil, X, Upload, ChevronRight, LockKeyhole, ArrowRight, Eye, EyeOff, LogOut} from "lucide-react";
 import "./styles.css";
 
 const seedSubjects = [
@@ -18,6 +18,7 @@ function load(key, fallback) {
 }
 
 function App() {
+  const [authenticated, setAuthenticated] = useState(() => localStorage.getItem("studyflow-auth") === "true");
   const [subjects, setSubjects] = useState(() => load("subjects", seedSubjects));
   const [items, setItems] = useState(() => load("items", seedItems));
   const [selected, setSelected] = useState("dashboard");
@@ -42,6 +43,8 @@ function App() {
   const submit = id => setItems(items.map(item => item.id === id ? {...item, status: "Submitted", submittedAt: new Date().toISOString()} : item));
   const remove = id => { if (confirm("Delete this requirement?")) setItems(items.filter(item => item.id !== id)); };
 
+  if (!authenticated) return <Login onLogin={() => { localStorage.setItem("studyflow-auth", "true"); setAuthenticated(true); }}/>;
+
   return <div className="app">
     <aside className="sidebar">
       <div className="brand"><div className="brandIcon"><BookOpen size={22}/></div><div><b>StudyFlow</b><span>Academic Manager</span></div></div>
@@ -49,7 +52,7 @@ function App() {
       <div className="sideTitle">SUBJECTS</div>
       {subjects.map(subject => <button key={subject.id} className={`nav ${selected === subject.id ? "active" : ""}`} onClick={() => setSelected(subject.id)}><span className="dot" style={{background: subject.color}}/>{subject.name}</button>)}
       <button className="addSubject" onClick={() => setModal({type: "subject"})}><Plus size={17}/> Add Subject</button>
-      <div className="sidebarBottom"><div className="tip"><Clock3 size={17}/><div><b>Stay ahead</b><p>Complete tasks before they turn red.</p></div></div></div>
+      <div className="sidebarBottom"><div className="tip"><Clock3 size={17}/><div><b>Stay ahead</b><p>Complete tasks before they turn red.</p></div></div><button className="logout" onClick={() => { localStorage.removeItem("studyflow-auth"); setAuthenticated(false); }}><LogOut size={16}/>Log out</button></div>
     </aside>
     <main>
       <header><div><h1>{selected === "dashboard" ? "Dashboard" : subjects.find(subject => subject.id === selected)?.name}</h1><p>{selected === "dashboard" ? "Keep track of every module, task and activity in one place." : "Manage your requirements and deadlines for this subject."}</p></div><button className="primary" onClick={() => setModal({type: "item", subjectId: selected === "dashboard" ? subjects[0]?.id : selected})}><Plus size={18}/> Add Requirement</button></header>
@@ -67,6 +70,19 @@ function App() {
     </main>
     {modal && <Modal data={modal} subjects={subjects} setSubjects={setSubjects} setItems={setItems} close={() => setModal(null)}/>} 
   </div>;
+}
+
+function Login({onLogin}) {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
+  const submit = event => {
+    event.preventDefault();
+    if (username === import.meta.env.VITE_APP_USERNAME && password === import.meta.env.VITE_APP_PASSWORD) onLogin();
+    else setError("That username or password is not correct.");
+  };
+  return <div className="loginPage"><div className="loginArtwork"><div className="artTop"><span className="artMark"><BookOpen size={20}/></span><span>StudyFlow</span></div><div className="artCopy"><p className="eyebrow">ACADEMIC ACTIVITY MANAGER</p><h1>Make every deadline feel manageable.</h1><p>One calm place for your subjects, activities, and progress.</p></div><div className="artNote"><CheckCircle2 size={18}/><span>Keep your momentum visible.</span></div></div><main className="loginMain"><div className="loginCard"><div className="loginIcon"><LockKeyhole size={21}/></div><p className="eyebrow">WELCOME BACK</p><h2>Sign in to StudyFlow</h2><p className="loginIntro">Pick up where you left off.</p><form onSubmit={submit}><label>Username<input autoComplete="username" value={username} onChange={event => { setUsername(event.target.value); setError(""); }} placeholder="Enter your username" autoFocus/></label><label>Password<div className="passwordField"><input type={showPassword ? "text" : "password"} autoComplete="current-password" value={password} onChange={event => { setPassword(event.target.value); setError(""); }} placeholder="Enter your password"/><button type="button" className="passwordToggle" onClick={() => setShowPassword(value => !value)} aria-label={showPassword ? "Hide password" : "Show password"}>{showPassword ? <EyeOff size={17}/> : <Eye size={17}/>}</button></div></label>{error && <p className="loginError" role="alert">{error}</p>}<button className="loginSubmit" type="submit">Sign in <ArrowRight size={18}/></button></form><p className="loginFoot">Your workspace is ready when you are.</p></div></main></div>;
 }
 
 function Stat({icon, label, value}) { return <div className="stat"><span>{icon}</span><div><b>{value}</b><small>{label}</small></div></div>; }
