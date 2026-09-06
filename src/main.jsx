@@ -94,7 +94,7 @@ function App() {
 
   return <div className="app">
     <aside className="sidebar">
-      <div className="brand"><div className="brandIcon"><BookOpen size={22}/></div><div><b>StudyFlow</b><span>Academic Manager</span></div></div>
+      <div className="brand"><div className="brandIcon"><BookOpen size={22}/></div><div><b>Saint Joseph Institute of Technology - ETEEAP 2026-2027</b><span>Academic Manager</span></div></div>
       <button className={`nav ${selected === "dashboard" ? "active" : ""}`} onClick={() => setSelected("dashboard")}><LayoutDashboard size={18}/>Dashboard</button>
       <div className="sideTitle">SUBJECTS</div>
       <SubjectSections sections={sections} subjects={subjects} selected={selected} onSelect={setSelected} onRename={renameSection} onMove={moveSubject}/>
