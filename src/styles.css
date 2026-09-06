@@ -1,3 +1,4 @@
+ .brandIcon{width:42px!important;height:42px!important;flex:0 0 42px;background:#fff!important;overflow:hidden}.brandIcon img{width:100%;height:100%;object-fit:contain;display:block}
 .artMark{width:76px!important;height:76px!important;background-color:#fff!important;border:2px solid #b9d9c5!important;border-radius:10px!important;box-shadow:0 8px 20px rgba(0,0,0,.16)}.artTop{gap:14px;align-items:center}
 .artMark{background:url('/sjit-logo.png') center/contain no-repeat!important;border:0!important}.artMark svg{display:none}
 .loginArtwork{background:linear-gradient(90deg,rgba(18,99,63,.92),rgba(18,99,63,.68)),url('/sjit-building.jpg') center/cover!important}
