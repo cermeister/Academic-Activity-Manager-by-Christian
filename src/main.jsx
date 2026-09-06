@@ -13,6 +13,7 @@ const mapSubject = row => ({id: row.id, name: row.name, code: row.code, color: r
 const mapItem = row => ({id: row.id, subjectId: row.subject_id, category: row.category, title: row.title, description: row.description || "", deadline: row.deadline, priority: row.priority, status: row.status, submittedAt: row.submitted_at, files: row.files || []});
 
 function App() {
+  const Login = LoginWithAccounts;
   const [authenticated, setAuthenticated] = useState(() => localStorage.getItem("studyflow-auth") === "true");
   const [subjects, setSubjects] = useState(seedSubjects);
   const [sections, setSections] = useState([]);
@@ -131,6 +132,19 @@ function App() {
 }
 
 function Login({onLogin}) { const [username, setUsername] = useState(""); const [password, setPassword] = useState(""); const [showPassword, setShowPassword] = useState(false); const [error, setError] = useState(""); const submit = event => {event.preventDefault(); if (username === import.meta.env.VITE_APP_USERNAME && password === import.meta.env.VITE_APP_PASSWORD) onLogin(); else setError("That username or password is not correct.");}; return <div className="loginPage"><div className="loginArtwork"><div className="artTop"><span className="artMark"><BookOpen size={20}/></span><span>Saint Joseph Institute of Technology - ETEEAP</span></div><div className="artCopy"><p className="eyebrow">ACADEMIC ACTIVITY MANAGER</p><h1>Make every deadline feel manageable.</h1><p>One calm place for your subjects, activities, and progress.</p></div><div className="artNote"><CheckCircle2 size={18}/><span>Keep your momentum visible.</span></div></div><main className="loginMain"><div className="loginCard"><div className="loginIcon"><LockKeyhole size={21}/></div><p className="eyebrow">WELCOME BACK</p><h2>Sign in to CC's Study Load</h2><p className="loginIntro">Pick up where you left off.</p><form onSubmit={submit}><label>Username<input autoComplete="username" value={username} onChange={event => {setUsername(event.target.value); setError("");}} placeholder="Enter your username" autoFocus/></label><label>Password<div className="passwordField"><input type={showPassword ? "text" : "password"} autoComplete="current-password" value={password} onChange={event => {setPassword(event.target.value); setError("");}} placeholder="Enter your password"/><button type="button" className="passwordToggle" onClick={() => setShowPassword(value => !value)} aria-label={showPassword ? "Hide password" : "Show password"}>{showPassword ? <EyeOff size={17}/> : <Eye size={17}/>}</button></div></label>{error && <p className="loginError" role="alert">{error}</p>}<button className="loginSubmit" type="submit">Sign in <ArrowRight size={18}/></button></form><p className="loginFoot">Your workspace is ready when you are.</p></div></main></div>; }
+function LoginWithAccounts({onLogin}) {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const submit = event => {
+    event.preventDefault();
+    const credentials = [[import.meta.env.VITE_APP_USERNAME, import.meta.env.VITE_APP_PASSWORD], [import.meta.env.VITE_APP_USERNAME_2, import.meta.env.VITE_APP_PASSWORD_2]];
+    if (credentials.some(([validUsername, validPassword]) => username === validUsername && password === validPassword)) onLogin();
+    else setError("That username or password is not correct.");
+  };
+  return <div className="loginPage"><main className="loginMain"><div className="loginCard"><div className="loginIcon"><LockKeyhole size={21}/></div><p className="eyebrow">WELCOME BACK</p><h2>Sign in to CC's Study Load</h2><p className="loginIntro">Pick up where you left off.</p><form onSubmit={submit}><label>Username<input autoComplete="username" value={username} onChange={event => {setUsername(event.target.value); setError("");}} placeholder="Enter your username" autoFocus/></label><label>Password<input type="password" autoComplete="current-password" value={password} onChange={event => {setPassword(event.target.value); setError("");}} placeholder="Enter your password"/></label>{error && <p className="loginError" role="alert">{error}</p>}<button className="loginSubmit" type="submit">Sign in <ArrowRight size={17}/></button></form></div></main></div>;
+}
+
 function SubjectSections({sections, subjects, selected, onSelect, onRename, onMove, onEdit}) {
   const [editing, setEditing] = useState(null);
   const [draft, setDraft] = useState("");
