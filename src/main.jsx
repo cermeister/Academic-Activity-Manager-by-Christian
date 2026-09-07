@@ -60,6 +60,29 @@ function App() {
     return () => { active = false; };
   }, [authenticated, accountUsername]);
 
+  useEffect(() => {
+    const previewAttachment = event => {
+      const button = event.target.closest(".attachment button");
+      if (!button || !button.querySelector("svg")?.getAttribute("class")?.includes("lucide-eye")) return;
+      if (button.getAttribute("aria-label")?.startsWith("View ") === false) return;
+      const attachment = button.closest(".attachment");
+      const item = attachment?.querySelector("span")?.title;
+      const file = items.flatMap(requirement => requirement.files || []).find(attachmentFile => attachmentFile.name === item);
+      if (!file?.dataUrl) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const [header, encoded] = file.dataUrl.split(",");
+      const binary = atob(encoded);
+      const bytes = new Uint8Array(binary.length);
+      for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+      const blobUrl = URL.createObjectURL(new Blob([bytes], {type: file.type || header.match(/data:(.*?);/)?.[1] || "application/octet-stream"}));
+      window.open(blobUrl, "_blank");
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+    };
+    document.addEventListener("click", previewAttachment, true);
+    return () => document.removeEventListener("click", previewAttachment, true);
+  }, [items]);
+
   const allItems = items.map(item => ({...item, subject: subjects.find(subject => subject.id === item.subjectId)?.name || "Unknown"}));
   const stats = {subjects: subjects.length, total: items.length, pending: items.filter(item => item.status === "Pending").length, submitted: items.filter(item => item.status === "Submitted").length, overdue: items.filter(item => item.status === "Pending" && daysLeft(item.deadline) < 0).length};
   const filtered = allItems.filter(item => (selected === "dashboard" || item.subjectId === selected) && (item.title + " " + item.description + " " + item.category + " " + item.subject).toLowerCase().includes(query.toLowerCase()));
