@@ -24,10 +24,11 @@ const normalizeSectionState = (sectionRows, subjectRows) => {
 
 function App() {
   const Login = LoginWithAccounts;
-  const [authenticated, setAuthenticated] = useState(() => localStorage.getItem("studyflow-auth") === "true");
-  const [subjects, setSubjects] = useState(seedSubjects);
+  const [accountUsername, setAccountUsername] = useState(() => localStorage.getItem("studyflow-account") || "");
+  const [authenticated, setAuthenticated] = useState(() => Boolean(localStorage.getItem("studyflow-account")));
+  const [subjects, setSubjects] = useState([]);
   const [sections, setSections] = useState([]);
-  const [items, setItems] = useState(seedItems);
+  const [items, setItems] = useState([]);
   const [selected, setSelected] = useState("dashboard");
   const [query, setQuery] = useState("");
   const [modal, setModal] = useState(null);
@@ -35,14 +36,14 @@ function App() {
   const [dataError, setDataError] = useState("");
 
   useEffect(() => {
-    if (!authenticated) return;
+    if (!authenticated || !accountUsername) return;
     let active = true;
     const loadData = async () => {
       setLoading(true);
       const [sectionResult, subjectResult, itemResult] = await Promise.all([
-        supabase.from("subject_sections").select("*").order("sort_order"),
-        supabase.from("subjects").select("*").order("sort_order"),
-        supabase.from("requirements").select("*").order("deadline")
+        supabase.from("subject_sections").select("*").eq("account_username", accountUsername).order("sort_order"),
+        supabase.from("subjects").select("*").eq("account_username", accountUsername).order("sort_order"),
+        supabase.from("requirements").select("*").eq("account_username", accountUsername).order("deadline")
       ]);
       if (!active) return;
       if (sectionResult.error || subjectResult.error || itemResult.error) setDataError(sectionResult.error?.message || subjectResult.error?.message || itemResult.error?.message || "Could not load your workspace.");
@@ -56,7 +57,7 @@ function App() {
     };
     loadData();
     return () => { active = false; };
-  }, [authenticated]);
+  }, [authenticated, accountUsername]);
 
   const allItems = items.map(item => ({...item, subject: subjects.find(subject => subject.id === item.subjectId)?.name || "Unknown"}));
   const stats = {subjects: subjects.length, total: items.length, pending: items.filter(item => item.status === "Pending").length, submitted: items.filter(item => item.status === "Submitted").length, overdue: items.filter(item => item.status === "Pending" && daysLeft(item.deadline) < 0).length};
@@ -64,21 +65,21 @@ function App() {
 
   const submit = async id => {
     const submittedAt = new Date().toISOString();
-    const {data, error} = await supabase.from("requirements").update({status: "Submitted", submitted_at: submittedAt}).eq("id", id).select().single();
+    const {data, error} = await supabase.from("requirements").update({status: "Submitted", submitted_at: submittedAt}).eq("id", id).eq("account_username", accountUsername).select().single();
     if (error) return setDataError(error.message);
     setItems(current => current.map(item => item.id === id ? mapItem(data) : item));
   };
   const remove = async id => {
     if (!confirm("Delete this requirement?")) return;
-    const {error} = await supabase.from("requirements").delete().eq("id", id);
+    const {error} = await supabase.from("requirements").delete().eq("id", id).eq("account_username", accountUsername);
     if (error) return setDataError(error.message);
     setItems(current => current.filter(item => item.id !== id));
   };
   const saveSubject = async form => {
     const fallbackSectionId = sections[0]?.id || DEFAULT_SECTION.id;
     const sectionId = form.sectionId || fallbackSectionId;
-    const payload = {name: form.name.trim(), code: form.code.trim() || null, color: form.color, instructor: form.instructor.trim() || null, section_id: sectionId, sort_order: form.sortOrder ?? subjects.filter(subject => subject.sectionId === sectionId).length};
-    const result = form.id ? await supabase.from("subjects").update(payload).eq("id", form.id).select().single() : await supabase.from("subjects").insert(payload).select().single();
+    const payload = {account_username: accountUsername, name: form.name.trim(), code: form.code.trim() || null, color: form.color, instructor: form.instructor.trim() || null, section_id: sectionId, sort_order: form.sortOrder ?? subjects.filter(subject => subject.sectionId === sectionId).length};
+    const result = form.id ? await supabase.from("subjects").update(payload).eq("id", form.id).eq("account_username", accountUsername).select().single() : await supabase.from("subjects").insert(payload).select().single();
     if (result.error) throw new Error(result.error.message);
     const subject = mapSubject(result.data);
     const nextSubject = {...subject, sectionId: subject.sectionId || fallbackSectionId, sortOrder: Number.isFinite(subject.sortOrder) ? subject.sortOrder : 0};
@@ -87,7 +88,7 @@ function App() {
   const renameSection = async (section, name) => {
     const cleanName = name.trim();
     if (!cleanName || cleanName === section.name) return;
-    const {error} = await supabase.from("subject_sections").update({name: cleanName}).eq("id", section.id);
+    const {error} = await supabase.from("subject_sections").update({name: cleanName}).eq("id", section.id).eq("account_username", accountUsername);
     if (error) return setDataError(error.message);
     setSections(current => current.map(item => item.id === section.id ? {...item, name: cleanName} : item));
   };
@@ -98,10 +99,10 @@ function App() {
     const sectionSubjects = nextSubjects.filter(subject => subject.sectionId === sectionId).sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
     const insertAt = beforeSubjectId ? sectionSubjects.findIndex(subject => subject.id === beforeSubjectId) : sectionSubjects.length;
     sectionSubjects.splice(insertAt < 0 ? sectionSubjects.length : insertAt, 0, {...moving, sectionId});
-    const updates = sectionSubjects.map((subject, index) => supabase.from("subjects").update({section_id: sectionId, sort_order: index}).eq("id", subject.id));
+    const updates = sectionSubjects.map((subject, index) => supabase.from("subjects").update({section_id: sectionId, sort_order: index}).eq("id", subject.id).eq("account_username", accountUsername));
     if (moving.sectionId && moving.sectionId !== sectionId) {
       const oldSectionSubjects = nextSubjects.filter(subject => subject.sectionId === moving.sectionId).sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
-      updates.push(...oldSectionSubjects.map((subject, index) => supabase.from("subjects").update({sort_order: index}).eq("id", subject.id)));
+      updates.push(...oldSectionSubjects.map((subject, index) => supabase.from("subjects").update({sort_order: index}).eq("id", subject.id).eq("account_username", accountUsername)));
     }
     const results = await Promise.all(updates);
     const error = results.find(result => result.error)?.error;
@@ -114,14 +115,14 @@ function App() {
     }).concat({...moving, sectionId, sortOrder: sectionSubjects.findIndex(subject => subject.id === moving.id)}));
   };
   const saveItem = async form => {
-    const payload = {subject_id: form.subjectId, category: form.category, title: form.title.trim(), description: form.description.trim() || null, deadline: form.deadline, priority: form.priority, status: form.status || "Pending", submitted_at: form.submittedAt || null, files: form.files || []};
-    const result = form.id ? await supabase.from("requirements").update(payload).eq("id", form.id).select().single() : await supabase.from("requirements").insert(payload).select().single();
+    const payload = {account_username: accountUsername, subject_id: form.subjectId, category: form.category, title: form.title.trim(), description: form.description.trim() || null, deadline: form.deadline, priority: form.priority, status: form.status || "Pending", submitted_at: form.submittedAt || null, files: form.files || []};
+    const result = form.id ? await supabase.from("requirements").update(payload).eq("id", form.id).eq("account_username", accountUsername).select().single() : await supabase.from("requirements").insert(payload).select().single();
     if (result.error) throw new Error(result.error.message);
     const item = mapItem(result.data);
     setItems(current => form.id ? current.map(existing => existing.id === form.id ? item : existing) : [...current, item]);
   };
 
-  if (!authenticated) return <Login onLogin={() => {localStorage.setItem("studyflow-auth", "true"); setAuthenticated(true);}}/>;
+  if (!authenticated) return <Login onLogin={username => {localStorage.setItem("studyflow-account", username); setAccountUsername(username); setAuthenticated(true);}}/>;
 
   return <div className="app">
     <aside className="sidebar">
@@ -130,7 +131,7 @@ function App() {
       <div className="sideTitle">SUBJECTS</div>
       <SubjectSections sections={sections} subjects={subjects} selected={selected} onSelect={setSelected} onRename={renameSection} onMove={moveSubject} onEdit={subject => setModal({type: "subject", subject})}/>
       <button className="addSubject" onClick={() => setModal({type: "subject"})}><Plus size={17}/> Add Subject</button>
-      <div className="sidebarBottom"><div className="tip"><Clock3 size={17}/><div><b>Stay ahead</b><p>Complete tasks before they turn red.</p></div></div><button className="logout" onClick={() => {localStorage.removeItem("studyflow-auth"); setAuthenticated(false);}}><LogOut size={16}/>Log out</button></div>
+      <div className="sidebarBottom"><div className="tip"><Clock3 size={17}/><div><b>Stay ahead</b><p>Complete tasks before they turn red.</p></div></div><button className="logout" onClick={() => {localStorage.removeItem("studyflow-account"); setAccountUsername(""); setAuthenticated(false);}}><LogOut size={16}/>Log out</button></div>
     </aside>
     <main>
       <header><div><h1>{selected === "dashboard" ? "Dashboard" : subjects.find(subject => subject.id === selected)?.name}</h1><p>{selected === "dashboard" ? "Keep track of every module, task and activity in one place." : "Manage your requirements and deadlines for this subject."}</p></div><button className="primary" onClick={() => setModal({type: "item", subjectId: selected === "dashboard" ? subjects[0]?.id : selected})}><Plus size={18}/> Add Requirement</button></header>
@@ -152,10 +153,23 @@ function LoginWithAccounts({onLogin}) {
   const submit = event => {
     event.preventDefault();
     const credentials = [[import.meta.env.VITE_APP_USERNAME, import.meta.env.VITE_APP_PASSWORD], [import.meta.env.VITE_APP_USERNAME_2, import.meta.env.VITE_APP_PASSWORD_2]];
-    if (credentials.some(([validUsername, validPassword]) => username === validUsername && password === validPassword)) onLogin();
+    if (credentials.some(([validUsername, validPassword]) => username === validUsername && password === validPassword)) onLogin(username);
     else setError("That username or password is not correct.");
   };
-  return <div className="loginPage"><main className="loginMain"><div className="loginCard"><div className="loginIcon"><LockKeyhole size={21}/></div><p className="eyebrow">WELCOME BACK</p><h2>Sign in to CC's Study Load</h2><p className="loginIntro">Pick up where you left off.</p><form onSubmit={submit}><label>Username<input autoComplete="username" value={username} onChange={event => {setUsername(event.target.value); setError("");}} placeholder="Enter your username" autoFocus/></label><label>Password<input type="password" autoComplete="current-password" value={password} onChange={event => {setPassword(event.target.value); setError("");}} placeholder="Enter your password"/></label>{error && <p className="loginError" role="alert">{error}</p>}<button className="loginSubmit" type="submit">Sign in <ArrowRight size={17}/></button></form></div></main></div>;
+  return <div className="loginPage">
+    <section className="loginArtwork">
+      <div className="loginBrand"><img src="/sjit-logo.png" alt="Saint Joseph Institute of Technology logo"/><div><b>Saint Joseph Institute of Technology - ETEEAP</b><span>ACADEMIC ACTIVITY MANAGER</span></div></div>
+      <div className="loginMessage"><h1>Small steps today,<br/><em>big dreams tomorrow.</em></h1><p>Stay organized. Submit on time.<br/>Complete your homework and performance tasks.<br/>You've got this!</p></div>
+      <div className="loginFeatures"><span><CalendarDays size={25}/><b>Track<br/>Deadlines</b></span><span><FileText size={25}/><b>Manage<br/>Activities</b></span><span><Clock3 size={25}/><b>Be<br/>On Time</b></span><span><CheckCircle2 size={25}/><b>Achieve<br/>Your Goals</b></span></div>
+      <div className="loginFooterQuote">Future Success<br/>Starts with<br/>Your Effort</div>
+    </section>
+    <main className="loginMain"><div className="loginCard">
+      <div className="loginMotto">Your Tasks<br/><em>Matter!</em></div>
+      <p className="eyebrow">WELCOME BACK</p><h2>Sign in to Your<br/>Student Account</h2><p className="loginIntro">Access your subjects, activities, and performance<br className="desktopOnly"/> tasks all in one place.</p>
+      <form onSubmit={submit}><label>Username<div className="loginInput"><BookOpen size={18}/><input autoComplete="username" value={username} onChange={event => {setUsername(event.target.value); setError("");}} placeholder="Enter your username" autoFocus/></div></label><label>Password<div className="loginInput"><LockKeyhole size={18}/><input type="password" autoComplete="current-password" value={password} onChange={event => {setPassword(event.target.value); setError("");}} placeholder="Enter your password"/></div></label>{error && <p className="loginError" role="alert">{error}</p>}<button className="loginSubmit" type="submit">Sign In <ArrowRight size={20}/></button></form>
+      <p className="loginHelp"><BookOpen size={16}/> Do you want to have your own? Contact Christian Cervantes.</p><div className="loginTip"><CheckCircle2 size={21}/><span>Keep going, you're closer<br/>to your goals than you think.</span></div>
+    </div></main>
+  </div>;
 }
 
 function SubjectSections({sections, subjects, selected, onSelect, onRename, onMove, onEdit}) {
@@ -163,10 +177,11 @@ function SubjectSections({sections, subjects, selected, onSelect, onRename, onMo
   const [draft, setDraft] = useState("");
   const beginRename = section => {setEditing(section.id); setDraft(section.name);};
   const finishRename = section => {onRename(section, draft); setEditing(null);};
-  return <div className="subjectSections">{sections.map(section => {
-    const sectionSubjects = subjects.filter(subject => subject.sectionId === section.id).sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
-    return <div className="subjectSection" key={section.id} onDragOver={event => event.preventDefault()} onDrop={event => {event.preventDefault(); const subjectId = event.dataTransfer.getData("subject-id"); if (subjectId) onMove(subjectId, section.id);}}>
-      <div className="sectionHeading">{editing === section.id ? <input value={draft} autoFocus onChange={event => setDraft(event.target.value)} onBlur={() => finishRename(section)} onKeyDown={event => {if (event.key === "Enter") finishRename(section); if (event.key === "Escape") setEditing(null);}}/> : <span>{section.name}</span>}<button className="sectionEdit" onClick={() => beginRename(section)} aria-label={`Rename ${section.name}`}><Pencil size={11}/></button></div>
+  const visibleSections = [...sections, ...(subjects.some(subject => !sections.some(section => section.id === subject.sectionId)) ? [{id: "__ungrouped__", sectionId: null, name: "My Subjects"}] : [])];
+  return <div className="subjectSections">{visibleSections.map(section => {
+    const sectionSubjects = subjects.filter(subject => subject.sectionId === section.sectionId || (section.id === "__ungrouped__" && !sections.some(existingSection => existingSection.id === subject.sectionId))).sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
+    return <div className="subjectSection" key={section.id} onDragOver={event => event.preventDefault()} onDrop={event => {event.preventDefault(); const subjectId = event.dataTransfer.getData("subject-id"); if (subjectId) onMove(subjectId, section.sectionId);}}>
+          <div className="sectionHeading">{editing === section.id ? <input value={draft} autoFocus onChange={event => setDraft(event.target.value)} onBlur={() => finishRename(section)} onKeyDown={event => {if (event.key === "Enter") finishRename(section); if (event.key === "Escape") setEditing(null);}}/> : <span>{section.name}</span>}{section.id !== "__ungrouped__" && <button className="sectionEdit" onClick={() => beginRename(section)} aria-label={`Rename ${section.name}`}><Pencil size={11}/></button>}</div>
       {sectionSubjects.map(subject => <div className="subjectRow" key={subject.id}><button draggable className={`nav subjectNav ${selected === subject.id ? "active" : ""}`} onDragStart={event => event.dataTransfer.setData("subject-id", subject.id)} onDragOver={event => event.preventDefault()} onDrop={event => {event.preventDefault(); event.stopPropagation(); const subjectId = event.dataTransfer.getData("subject-id"); if (subjectId && subjectId !== subject.id) onMove(subjectId, section.id, subject.id);}} onClick={() => onSelect(subject.id)}><GripVertical className="dragHandle" size={13}/><span className="dot" style={{background: subject.color}}/><span className="subjectLabel"><span>{subject.name}</span>{subject.instructor && <small>{subject.instructor}</small>}</span></button><button className="subjectEdit" onClick={() => onEdit(subject)} aria-label={`Edit ${subject.name}`}><Pencil size={12}/></button></div>)}
       {!sectionSubjects.length && <div className="dropHint">Drop subjects here</div>}
     </div>;
