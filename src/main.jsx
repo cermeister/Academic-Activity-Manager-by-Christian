@@ -211,6 +211,7 @@ function FilePreviewModal({file, close}) {
   const extension = file.name?.split(".").pop()?.toLowerCase();
   const isDocx = extension === "docx" || extension === "docs";
   const isPptx = extension === "pptx";
+  const isImage = file.type?.startsWith("image/");
   const canEmbed = file.type?.startsWith("image/") || file.type === "application/pdf" || file.type?.startsWith("text/");
   useEffect(() => {
     if (!officeRef.current || (!isDocx && !isPptx)) return;
@@ -223,7 +224,7 @@ function FilePreviewModal({file, close}) {
     const render = isDocx ? renderDocx(blob, officeRef.current, officeRef.current, {breakPages: true, useBase64URL: true}) : pptx2html(blob, officeRef.current);
     Promise.resolve(render).catch(() => {if (officeRef.current) officeRef.current.innerHTML = "<p class=\"officePreviewError\">This Office file could not be rendered. Please download it instead.</p>";});
   }, [file, isDocx, isPptx]);
-  return <div className="overlay filePreviewOverlay" onClick={close}><div className="filePreviewModal" onClick={event => event.stopPropagation()}><div className="modalHead"><div><h2>Preview file</h2><span>{file.name}</span></div><button onClick={close} aria-label="Close preview"><X/></button></div>{canEmbed ? <iframe title={`Preview ${file.name}`} src={file.previewUrl}/> : isDocx || isPptx ? <div ref={officeRef} className="officePreview"/> : <div className="filePreviewFallback"><FileText size={42}/><b>{file.name}</b><p>This file type cannot be displayed in the browser, but you can download it.</p><a href={file.dataUrl} download={file.name}><Download size={17}/> Download file</a></div>}</div></div>;
+  return <div className="overlay filePreviewOverlay" onClick={close}><div className="filePreviewModal" onClick={event => event.stopPropagation()}><div className="modalHead"><div><h2>Preview file</h2><span>{file.name}</span></div><button onClick={close} aria-label="Close preview"><X/></button></div>{isImage ? <div className="imagePreview"><img src={file.previewUrl} alt={file.name}/></div> : canEmbed ? <iframe title={`Preview ${file.name}`} src={file.previewUrl}/> : isDocx || isPptx ? <div ref={officeRef} className="officePreview"/> : <div className="filePreviewFallback"><FileText size={42}/><b>{file.name}</b><p>This file type cannot be displayed in the browser, but you can download it.</p><a href={file.dataUrl} download={file.name}><Download size={17}/> Download file</a></div>}</div></div>;
 }
 
 function SubjectSections({sections, subjects, selected, onSelect, onRename, onMove, onEdit}) {
