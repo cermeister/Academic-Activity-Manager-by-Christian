@@ -34,6 +34,7 @@ function App() {
   const [modal, setModal] = useState(null);
   const [loading, setLoading] = useState(false);
   const [dataError, setDataError] = useState("");
+  const [previewFile, setPreviewFile] = useState(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   useEffect(() => {
@@ -76,8 +77,7 @@ function App() {
       const bytes = new Uint8Array(binary.length);
       for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
       const blobUrl = URL.createObjectURL(new Blob([bytes], {type: file.type || header.match(/data:(.*?);/)?.[1] || "application/octet-stream"}));
-      window.open(blobUrl, "_blank");
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+      setPreviewFile({...file, previewUrl: blobUrl});
     };
     document.addEventListener("click", previewAttachment, true);
     return () => document.removeEventListener("click", previewAttachment, true);
@@ -171,7 +171,8 @@ function App() {
       {selected !== "dashboard" && <SubjectView items={filtered} onSubmit={submit} onDelete={remove} onEdit={item => setModal({type: "item", item})}/>} 
       {selected === "dashboard" && <section className="panel all"><div className="panelHead"><div><h2>All requirements</h2><span>Search and manage everything</span></div><div className="search"><Search size={17}/><input placeholder="Search..." value={query} onChange={event => setQuery(event.target.value)}/></div></div><div className="table">{filtered.map(item => <ItemRow key={item.id} x={item} showSubject onSubmit={submit} onDelete={remove} onEdit={() => setModal({type: "item", item})}/>)}</div></section>}
     </main>
-    {modal && (modal.type === "subject" ? <SubjectModal subject={modal.subject} onSave={saveSubject} close={() => setModal(null)}/> : <Modal data={modal} subjects={subjects} onSaveSubject={saveSubject} onSaveItem={saveItem} close={() => setModal(null)}/>)} 
+    {modal && (modal.type === "subject" ? <SubjectModal subject={modal.subject} onSave={saveSubject} close={() => setModal(null)}/> : <Modal data={modal} subjects={subjects} onSaveSubject={saveSubject} onSaveItem={saveItem} close={() => setModal(null)}/>)}
+    {previewFile && <FilePreviewModal file={previewFile} close={() => {URL.revokeObjectURL(previewFile.previewUrl); setPreviewFile(null);}}/>}
   </div>;
 }
 
@@ -202,6 +203,8 @@ function LoginWithAccounts({onLogin}) {
     </div></main>
   </div>;
 }
+
+function FilePreviewModal({file, close}) { const canEmbed = file.type?.startsWith("image/") || file.type === "application/pdf" || file.type?.startsWith("text/"); return <div className="overlay filePreviewOverlay" onClick={close}><div className="filePreviewModal" onClick={event => event.stopPropagation()}><div className="modalHead"><div><h2>Preview file</h2><span>{file.name}</span></div><button onClick={close} aria-label="Close preview"><X/></button></div>{canEmbed ? <iframe title={`Preview ${file.name}`} src={file.previewUrl}/> : <div className="filePreviewFallback"><FileText size={42}/><b>{file.name}</b><p>This file type cannot be displayed in the browser, but you can download it.</p><a href={file.dataUrl} download={file.name}><Download size={17}/> Download file</a></div>}</div></div>; }
 
 function SubjectSections({sections, subjects, selected, onSelect, onRename, onMove, onEdit}) {
   const [editing, setEditing] = useState(null);
