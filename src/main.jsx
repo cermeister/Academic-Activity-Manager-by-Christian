@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from "react";
 import {createRoot} from "react-dom/client";
-import {BookOpen, CheckCircle2, CircleAlert, Clock3, FileText, FolderOpen, LayoutDashboard, Plus, Search, CalendarDays, Trash2, Pencil, X, Upload, ChevronRight, LockKeyhole, ArrowRight, Eye, EyeOff, LogOut, GripVertical} from "lucide-react";
+import {BookOpen, CheckCircle2, CircleAlert, Clock3, FileText, FolderOpen, LayoutDashboard, Plus, Search, CalendarDays, Trash2, Pencil, X, Upload, ChevronRight, LockKeyhole, ArrowRight, Eye, EyeOff, LogOut, GripVertical, Menu} from "lucide-react";
 import {supabase} from "./lib/supabase";
 import "./styles.css";
 import "./subjectStyles.css";
@@ -34,6 +34,7 @@ function App() {
   const [modal, setModal] = useState(null);
   const [loading, setLoading] = useState(false);
   const [dataError, setDataError] = useState("");
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   useEffect(() => {
     if (!authenticated || !accountUsername) return;
@@ -124,14 +125,17 @@ function App() {
 
   if (!authenticated) return <Login onLogin={username => {localStorage.setItem("studyflow-account", username); setAccountUsername(username); setAuthenticated(true);}}/>;
 
-  return <div className="app">
+  return <div className={`app ${mobileNavOpen ? "navOpen" : ""}`}>
+    <button className="mobileMenu" onClick={() => setMobileNavOpen(true)} aria-label="Open navigation"><Menu size={21}/></button>
+    <button className="navBackdrop" onClick={() => setMobileNavOpen(false)} aria-label="Close navigation"/>
     <aside className="sidebar">
+      <div className="mobileSidebarHead"><span>Workspace</span><button onClick={() => setMobileNavOpen(false)} aria-label="Close navigation"><X size={20}/></button></div>
       <div className="brand"><div className="brandIcon"><img src="/sjit-logo.png" alt="Saint Joseph Institute of Technology logo"/></div><div><b>Saint Joseph Institute of Technology - ETEEAP 2026-2027</b><span>Academic Manager</span></div></div>
-      <button className={`nav ${selected === "dashboard" ? "active" : ""}`} onClick={() => setSelected("dashboard")}><LayoutDashboard size={18}/>Dashboard</button>
+      <button className={`nav ${selected === "dashboard" ? "active" : ""}`} onClick={() => {setSelected("dashboard"); setMobileNavOpen(false);}}><LayoutDashboard size={18}/>Dashboard</button>
       <div className="sideTitle">SUBJECTS</div>
-      <SubjectSections sections={sections} subjects={subjects} selected={selected} onSelect={setSelected} onRename={renameSection} onMove={moveSubject} onEdit={subject => setModal({type: "subject", subject})}/>
-      <button className="addSubject" onClick={() => setModal({type: "subject"})}><Plus size={17}/> Add Subject</button>
-      <div className="sidebarBottom"><div className="tip"><Clock3 size={17}/><div><b>Stay ahead</b><p>Complete tasks before they turn red.</p></div></div><button className="logout" onClick={() => {localStorage.removeItem("studyflow-account"); setAccountUsername(""); setAuthenticated(false);}}><LogOut size={16}/>Log out</button></div>
+      <SubjectSections sections={sections} subjects={subjects} selected={selected} onSelect={id => {setSelected(id); setMobileNavOpen(false);}} onRename={renameSection} onMove={moveSubject} onEdit={subject => {setModal({type: "subject", subject}); setMobileNavOpen(false);}}/>
+      <button className="addSubject" onClick={() => {setModal({type: "subject"}); setMobileNavOpen(false);}}><Plus size={17}/> Add Subject</button>
+      <div className="sidebarBottom"><div className="tip"><Clock3 size={17}/><div><b>Stay ahead</b><p>Complete tasks before they turn red.</p></div></div><button className="logout" onClick={() => {localStorage.removeItem("studyflow-account"); setAccountUsername(""); setAuthenticated(false); setMobileNavOpen(false);}}><LogOut size={16}/>Log out</button></div>
     </aside>
     <main>
       <header><div><h1>{selected === "dashboard" ? "Dashboard" : subjects.find(subject => subject.id === selected)?.name}</h1><p>{selected === "dashboard" ? "Keep track of every module, task and activity in one place." : "Manage your requirements and deadlines for this subject."}</p></div><button className="primary" onClick={() => setModal({type: "item", subjectId: selected === "dashboard" ? subjects[0]?.id : selected})}><Plus size={18}/> Add Requirement</button></header>
