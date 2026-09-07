@@ -8,9 +8,19 @@ import "./subjectStyles.css";
 const seedSubjects = [{id: "s1", name: "Business Finance", code: "FIN 101", color: "#2563eb"}, {id: "s2", name: "Web Development", code: "IT 201", color: "#7c3aed"}];
 const seedItems = [{id: "i1", subjectId: "s1", category: "Module", title: "Module 1 – Introduction to Business Finance", description: "Read the module and review the examples.", deadline: "2026-09-10", priority: "High", status: "Pending", files: []}, {id: "i2", subjectId: "s1", category: "Activity", title: "Activity 1 – Financial Decisions", description: "Answer the guide questions.", deadline: "2026-09-12", priority: "Medium", status: "Pending", files: []}, {id: "i3", subjectId: "s2", category: "Task", title: "HTML/CSS Practice", description: "Create the required webpage.", deadline: "2026-09-18", priority: "High", status: "Pending", files: []}];
 
+const DEFAULT_SECTION = {id: "default-section", name: "My Subjects", sortOrder: 0};
 const mapSection = row => ({id: row.id, name: row.name, sortOrder: row.sort_order});
 const mapSubject = row => ({id: row.id, name: row.name, code: row.code, color: row.color, instructor: row.instructor || "", sectionId: row.section_id, sortOrder: row.sort_order});
 const mapItem = row => ({id: row.id, subjectId: row.subject_id, category: row.category, title: row.title, description: row.description || "", deadline: row.deadline, priority: row.priority, status: row.status, submittedAt: row.submitted_at, files: row.files || []});
+const normalizeSectionState = (sectionRows, subjectRows) => {
+  const resolvedSections = sectionRows && sectionRows.length ? sectionRows.map(mapSection) : [{...DEFAULT_SECTION}];
+  const fallbackSectionId = resolvedSections[0]?.id || DEFAULT_SECTION.id;
+  const normalizedSubjects = (subjectRows || []).map(row => {
+    const subject = mapSubject(row);
+    return {...subject, sectionId: subject.sectionId || fallbackSectionId, sortOrder: Number.isFinite(subject.sortOrder) ? subject.sortOrder : 0};
+  });
+  return {sections: resolvedSections, subjects: normalizedSubjects};
+};
 
 function App() {
   const Login = LoginWithAccounts;
@@ -37,8 +47,9 @@ function App() {
       if (!active) return;
       if (sectionResult.error || subjectResult.error || itemResult.error) setDataError(sectionResult.error?.message || subjectResult.error?.message || itemResult.error?.message || "Could not load your workspace.");
       else {
-        setSections(sectionResult.data.map(mapSection));
-        setSubjects(subjectResult.data.map(mapSubject));
+        const normalized = normalizeSectionState(sectionResult.data, subjectResult.data);
+        setSections(normalized.sections);
+        setSubjects(normalized.subjects);
         setItems(itemResult.data.map(mapItem));
       }
       setLoading(false);
@@ -64,12 +75,14 @@ function App() {
     setItems(current => current.filter(item => item.id !== id));
   };
   const saveSubject = async form => {
-    const sectionId = form.sectionId || sections[0]?.id || null;
+    const fallbackSectionId = sections[0]?.id || DEFAULT_SECTION.id;
+    const sectionId = form.sectionId || fallbackSectionId;
     const payload = {name: form.name.trim(), code: form.code.trim() || null, color: form.color, instructor: form.instructor.trim() || null, section_id: sectionId, sort_order: form.sortOrder ?? subjects.filter(subject => subject.sectionId === sectionId).length};
     const result = form.id ? await supabase.from("subjects").update(payload).eq("id", form.id).select().single() : await supabase.from("subjects").insert(payload).select().single();
     if (result.error) throw new Error(result.error.message);
     const subject = mapSubject(result.data);
-    setSubjects(current => form.id ? current.map(item => item.id === form.id ? subject : item) : [...current, subject]);
+    const nextSubject = {...subject, sectionId: subject.sectionId || fallbackSectionId, sortOrder: Number.isFinite(subject.sortOrder) ? subject.sortOrder : 0};
+    setSubjects(current => form.id ? current.map(item => item.id === form.id ? nextSubject : item) : [...current, nextSubject]);
   };
   const renameSection = async (section, name) => {
     const cleanName = name.trim();
