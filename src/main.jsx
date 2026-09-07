@@ -149,6 +149,7 @@ function Login({onLogin}) { const [username, setUsername] = useState(""); const 
 function LoginWithAccounts({onLogin}) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const submit = event => {
     event.preventDefault();
@@ -166,7 +167,7 @@ function LoginWithAccounts({onLogin}) {
     <main className="loginMain"><div className="loginCard">
       <div className="loginMotto">Your Tasks<br/><em>Matter!</em></div>
       <p className="eyebrow">WELCOME BACK</p><h2>Sign in to Your<br/>Student Account</h2><p className="loginIntro">Access your subjects, activities, and performance<br className="desktopOnly"/> tasks all in one place.</p>
-      <form onSubmit={submit}><label>Username<div className="loginInput"><BookOpen size={18}/><input autoComplete="username" value={username} onChange={event => {setUsername(event.target.value); setError("");}} placeholder="Enter your username" autoFocus/></div></label><label>Password<div className="loginInput"><LockKeyhole size={18}/><input type="password" autoComplete="current-password" value={password} onChange={event => {setPassword(event.target.value); setError("");}} placeholder="Enter your password"/></div></label>{error && <p className="loginError" role="alert">{error}</p>}<button className="loginSubmit" type="submit">Sign In <ArrowRight size={20}/></button></form>
+      <form onSubmit={submit}><label>Username<div className="loginInput"><BookOpen size={18}/><input autoComplete="username" value={username} onChange={event => {setUsername(event.target.value); setError("");}} placeholder="Enter your username" autoFocus/></div></label><label>Password<div className="loginInput"><LockKeyhole size={18}/><input type={showPassword ? "text" : "password"} autoComplete="current-password" value={password} onChange={event => {setPassword(event.target.value); setError("");}} placeholder="Enter your password"/><button type="button" className="passwordToggle" onClick={() => setShowPassword(value => !value)} aria-label={showPassword ? "Hide password" : "Show password"} title={showPassword ? "Hide password" : "Show password"}>{showPassword ? <EyeOff size={18}/> : <Eye size={18}/>}</button></div></label>{error && <p className="loginError" role="alert">{error}</p>}<button className="loginSubmit" type="submit">Sign In <ArrowRight size={20}/></button></form>
       <p className="loginHelp"><BookOpen size={16}/> Do you want to have your own? Contact Christian Cervantes.</p><div className="loginTip"><CheckCircle2 size={21}/><span>Keep going, you're closer<br/>to your goals than you think.</span></div>
     </div></main>
   </div>;
