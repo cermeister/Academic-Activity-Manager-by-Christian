@@ -5,6 +5,7 @@ import {supabase} from "./lib/supabase";
 import {renderAsync as renderDocx} from "docx-preview";
 import "./styles.css";
 import "./subjectStyles.css";
+import "./responsive.css";
 
 const seedSubjects = [{id: "s1", name: "Business Finance", code: "FIN 101", color: "#2563eb"}, {id: "s2", name: "Web Development", code: "IT 201", color: "#7c3aed"}];
 const seedItems = [{id: "i1", subjectId: "s1", category: "Module", title: "Module 1 – Introduction to Business Finance", description: "Read the module and review the examples.", deadline: "2026-09-10", priority: "High", status: "Pending", files: []}, {id: "i2", subjectId: "s1", category: "Activity", title: "Activity 1 – Financial Decisions", description: "Answer the guide questions.", deadline: "2026-09-12", priority: "Medium", status: "Pending", files: []}, {id: "i3", subjectId: "s2", category: "Task", title: "HTML/CSS Practice", description: "Create the required webpage.", deadline: "2026-09-18", priority: "High", status: "Pending", files: []}];
