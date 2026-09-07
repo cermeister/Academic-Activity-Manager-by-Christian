@@ -1,7 +1,9 @@
-import React, {useEffect, useState} from "react";
+import React, {useEffect, useRef, useState} from "react";
 import {createRoot} from "react-dom/client";
 import {BookOpen, CheckCircle2, CircleAlert, Clock3, FileText, FolderOpen, LayoutDashboard, Plus, Search, CalendarDays, Trash2, Pencil, X, Upload, Download, ChevronRight, LockKeyhole, ArrowRight, Eye, EyeOff, LogOut, GripVertical, Menu} from "lucide-react";
 import {supabase} from "./lib/supabase";
+import {renderAsync as renderDocx} from "docx-preview";
+import pptx2html from "pptx2html";
 import "./styles.css";
 import "./subjectStyles.css";
 
@@ -204,7 +206,25 @@ function LoginWithAccounts({onLogin}) {
   </div>;
 }
 
-function FilePreviewModal({file, close}) { const canEmbed = file.type?.startsWith("image/") || file.type === "application/pdf" || file.type?.startsWith("text/"); return <div className="overlay filePreviewOverlay" onClick={close}><div className="filePreviewModal" onClick={event => event.stopPropagation()}><div className="modalHead"><div><h2>Preview file</h2><span>{file.name}</span></div><button onClick={close} aria-label="Close preview"><X/></button></div>{canEmbed ? <iframe title={`Preview ${file.name}`} src={file.previewUrl}/> : <div className="filePreviewFallback"><FileText size={42}/><b>{file.name}</b><p>This file type cannot be displayed in the browser, but you can download it.</p><a href={file.dataUrl} download={file.name}><Download size={17}/> Download file</a></div>}</div></div>; }
+function FilePreviewModal({file, close}) {
+  const officeRef = useRef(null);
+  const extension = file.name?.split(".").pop()?.toLowerCase();
+  const isDocx = extension === "docx" || extension === "docs";
+  const isPptx = extension === "pptx";
+  const canEmbed = file.type?.startsWith("image/") || file.type === "application/pdf" || file.type?.startsWith("text/");
+  useEffect(() => {
+    if (!officeRef.current || (!isDocx && !isPptx)) return;
+    officeRef.current.innerHTML = "";
+    const [header, encoded] = file.dataUrl.split(",");
+    const binary = atob(encoded);
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+    const blob = new Blob([bytes], {type: file.type || header.match(/data:(.*?);/)?.[1] || "application/octet-stream"});
+    const render = isDocx ? renderDocx(blob, officeRef.current, officeRef.current, {breakPages: true, useBase64URL: true}) : pptx2html(blob, officeRef.current);
+    Promise.resolve(render).catch(() => {if (officeRef.current) officeRef.current.innerHTML = "<p class=\"officePreviewError\">This Office file could not be rendered. Please download it instead.</p>";});
+  }, [file, isDocx, isPptx]);
+  return <div className="overlay filePreviewOverlay" onClick={close}><div className="filePreviewModal" onClick={event => event.stopPropagation()}><div className="modalHead"><div><h2>Preview file</h2><span>{file.name}</span></div><button onClick={close} aria-label="Close preview"><X/></button></div>{canEmbed ? <iframe title={`Preview ${file.name}`} src={file.previewUrl}/> : isDocx || isPptx ? <div ref={officeRef} className="officePreview"/> : <div className="filePreviewFallback"><FileText size={42}/><b>{file.name}</b><p>This file type cannot be displayed in the browser, but you can download it.</p><a href={file.dataUrl} download={file.name}><Download size={17}/> Download file</a></div>}</div></div>;
+}
 
 function SubjectSections({sections, subjects, selected, onSelect, onRename, onMove, onEdit}) {
   const [editing, setEditing] = useState(null);
