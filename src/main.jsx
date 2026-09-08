@@ -38,6 +38,7 @@ function App() {
   const [dataError, setDataError] = useState("");
   const [previewFile, setPreviewFile] = useState(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   useEffect(() => {
     if (!authenticated || !accountUsername) return;
@@ -150,6 +151,7 @@ function App() {
     const item = mapItem(result.data);
     setItems(current => form.id ? current.map(existing => existing.id === form.id ? item : existing) : [...current, item]);
   };
+  const logout = () => {localStorage.removeItem("studyflow-account"); setAccountUsername(""); setAuthenticated(false); setMobileNavOpen(false); setProfileOpen(false);};
 
   if (!authenticated) return <Login onLogin={username => {localStorage.setItem("studyflow-account", username); setAccountUsername(username); setAuthenticated(true);}}/>;
 
@@ -163,10 +165,10 @@ function App() {
       <div className="sideTitle">SUBJECTS</div>
       <SubjectSections sections={sections} subjects={subjects} selected={selected} onSelect={id => {setSelected(id); setMobileNavOpen(false);}} onRename={renameSection} onMove={moveSubject} onEdit={subject => {setModal({type: "subject", subject}); setMobileNavOpen(false);}}/>
       <button className="addSubject" onClick={() => {setModal({type: "subject"}); setMobileNavOpen(false);}}><Plus size={17}/> Add Subject</button>
-      <div className="sidebarBottom"><div className="tip"><Clock3 size={17}/><div><b>Stay ahead</b><p>Complete tasks before they turn red.</p></div></div><button className="logout" onClick={() => {localStorage.removeItem("studyflow-account"); setAccountUsername(""); setAuthenticated(false); setMobileNavOpen(false);}}><LogOut size={16}/>Log out</button></div>
+      <div className="sidebarBottom"><div className="tip"><Clock3 size={17}/><div><b>Stay ahead</b><p>Complete tasks before they turn red.</p></div></div></div>
     </aside>
     <main>
-      <header><div><h1>{selected === "dashboard" ? "Dashboard" : subjects.find(subject => subject.id === selected)?.name}</h1><p>{selected === "dashboard" ? "Keep track of every module, task and activity in one place." : "Manage your requirements and deadlines for this subject."}</p></div><button className="primary" onClick={() => setModal({type: "item", subjectId: selected === "dashboard" ? subjects[0]?.id : selected})}><Plus size={18}/> Add Requirement</button></header>
+      <header><div><h1>{selected === "dashboard" ? "Dashboard" : subjects.find(subject => subject.id === selected)?.name}</h1><p>{selected === "dashboard" ? "Keep track of every module, task and activity in one place." : "Manage your requirements and deadlines for this subject."}</p></div><div className="headerActions"><button className="primary" onClick={() => setModal({type: "item", subjectId: selected === "dashboard" ? subjects[0]?.id : selected})}><Plus size={18}/> Add Requirement</button><div className={`profileMenu ${profileOpen ? "open" : ""}`}><button className="profileButton" onClick={() => setProfileOpen(value => !value)} aria-expanded={profileOpen} aria-haspopup="menu"><span className="profileAvatar">{accountUsername.slice(0, 2).toUpperCase()}</span><span className="profileIdentity"><b>{accountUsername}</b><small>Academic Manager</small></span><ChevronDown size={15}/></button>{profileOpen && <div className="profilePanel" role="menu"><div className="profilePanelHead"><span className="profileAvatar large">{accountUsername.slice(0, 2).toUpperCase()}</span><div><b>{accountUsername}</b><small>Signed-in user</small></div></div><button className="profileLogout" onClick={logout} role="menuitem"><LogOut size={16}/> Log out</button></div>}</div></div></header>
       {dataError && <div className="dataError" role="alert">{dataError}</div>}
       {loading && <div className="loadingBar">Syncing your workspace...</div>}
       {selected === "dashboard" && <><section className="stats"><Stat icon={<BookOpen/>} label="Subjects" value={stats.subjects}/><Stat icon={<FileText/>} label="Requirements" value={stats.total}/><Stat icon={<Clock3/>} label="Pending" value={stats.pending}/><Stat icon={<CheckCircle2/>} label="Completed" value={stats.completed}/><Stat icon={<CircleAlert/>} label="Overdue" value={stats.overdue}/></section><section className="dashboardGrid"><div className="panel"><div className="panelHead"><div><h2>Upcoming deadlines</h2><span>Your next requirements</span></div><CalendarDays size={20}/></div><div className="list">{[...allItems].filter(item => item.status !== "Completed").sort((a, b) => a.deadline.localeCompare(b.deadline)).slice(0, 6).map(item => <ItemRow key={item.id} x={item} onStatusChange={updateStatus} onDelete={remove} onEdit={() => setModal({type: "item", item})}/>)}</div>{allItems.filter(item => item.status !== "Completed").length === 0 && <Empty text="Everything is completed. Great work!"/>}</div><div className="panel"><div className="panelHead"><div><h2>Subjects</h2><span>Quick overview</span></div></div>{subjects.map(subject => <SubjectCard key={subject.id} subject={subject} items={items} onSelect={setSelected}/>)}</div></section></>}
