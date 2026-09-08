@@ -18,6 +18,7 @@ const profileStorageKey = username => `studyflow-profile-${username}`;
 const passwordStorageKey = username => `studyflow-password-${username}`;
 const getStoredProfile = username => {if (!username) return {displayName: "", photo: ""}; try {return {...{displayName: "", photo: ""}, ...JSON.parse(localStorage.getItem(profileStorageKey(username)) || "{}")};} catch {return {displayName: "", photo: ""};}};
 const getInitials = value => value.split(/\s+/).filter(Boolean).map(part => part[0]).join("").slice(0, 2).toUpperCase() || "U";
+const hashPassword = async password => {const bytes = new TextEncoder().encode(password); const digest = await crypto.subtle.digest("SHA-256", bytes); return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, "0")).join("");};
 const normalizeSectionState = (sectionRows, subjectRows) => {
   const resolvedSections = sectionRows && sectionRows.length ? sectionRows.map(mapSection) : [{...DEFAULT_SECTION}];
   const fallbackSectionId = resolvedSections[0]?.id || DEFAULT_SECTION.id;
@@ -53,18 +54,20 @@ function App() {
     let active = true;
     const loadData = async () => {
       setLoading(true);
-      const [sectionResult, subjectResult, itemResult] = await Promise.all([
+      const [sectionResult, subjectResult, itemResult, profileResult] = await Promise.all([
         supabase.from("subject_sections").select("*").eq("account_username", accountUsername).order("sort_order"),
         supabase.from("subjects").select("*").eq("account_username", accountUsername).order("sort_order"),
-        supabase.from("requirements").select("*").eq("account_username", accountUsername).order("deadline")
+        supabase.from("requirements").select("*").eq("account_username", accountUsername).order("deadline"),
+        supabase.from("account_profiles").select("display_name, photo_data_url").eq("username", accountUsername).maybeSingle()
       ]);
       if (!active) return;
-      if (sectionResult.error || subjectResult.error || itemResult.error) setDataError(sectionResult.error?.message || subjectResult.error?.message || itemResult.error?.message || "Could not load your workspace.");
+      if (sectionResult.error || subjectResult.error || itemResult.error || profileResult.error) setDataError(sectionResult.error?.message || subjectResult.error?.message || itemResult.error?.message || profileResult.error?.message || "Could not load your workspace.");
       else {
         const normalized = normalizeSectionState(sectionResult.data, subjectResult.data);
         setSections(normalized.sections);
         setSubjects(normalized.subjects);
         setItems(itemResult.data.map(mapItem));
+        if (profileResult.data) setProfile({displayName: profileResult.data.display_name || "", photo: profileResult.data.photo_data_url || ""});
       }
       setLoading(false);
     };
@@ -120,6 +123,15 @@ function App() {
     const nextSubject = {...subject, sectionId: subject.sectionId || fallbackSectionId, sortOrder: Number.isFinite(subject.sortOrder) ? subject.sortOrder : 0};
     setSubjects(current => form.id ? current.map(item => item.id === form.id ? nextSubject : item) : [...current, nextSubject]);
   };
+  const deleteSubject = async subject => {
+    if (!subject?.id || !confirm(`Delete ${subject.name}? Its requirements will also be deleted.`)) return;
+    const {error} = await supabase.from("subjects").delete().eq("id", subject.id).eq("account_username", accountUsername);
+    if (error) return setDataError(error.message);
+    setSubjects(current => current.filter(item => item.id !== subject.id));
+    setItems(current => current.filter(item => item.subjectId !== subject.id));
+    if (selected === subject.id) setSelected("dashboard");
+    setModal(null);
+  };
   const renameSection = async (section, name) => {
     const cleanName = name.trim();
     if (!cleanName || cleanName === section.name) return;
@@ -160,19 +172,23 @@ function App() {
     setItems(current => form.id ? current.map(existing => existing.id === form.id ? item : existing) : [...current, item]);
   };
   const logout = () => {localStorage.removeItem("studyflow-account"); setAccountUsername(""); setAuthenticated(false); setMobileNavOpen(false); setProfileOpen(false);};
-  const saveProfile = ({displayName, photo, newPassword}) => {
+  const saveProfile = async ({displayName, photo, newPassword}) => {
     const nextProfile = {displayName: displayName.trim(), photo: photo || ""};
+    const passwordHash = newPassword ? await hashPassword(newPassword) : undefined;
+    const payload = {username: accountUsername, display_name: nextProfile.displayName, photo_data_url: nextProfile.photo, ...(passwordHash ? {password_hash: passwordHash} : {})};
+    const {error} = await supabase.from("account_profiles").upsert(payload, {onConflict: "username"});
+    if (error) throw new Error(error.message);
     localStorage.setItem(profileStorageKey(accountUsername), JSON.stringify(nextProfile));
-    if (newPassword) localStorage.setItem(passwordStorageKey(accountUsername), newPassword);
     setProfile(nextProfile);
     setProfileEditing(false);
     setProfileOpen(false);
   };
 
-  if (!authenticated) return <Login onLogin={username => {localStorage.setItem("studyflow-account", username); setAccountUsername(username); setAuthenticated(true);}}/>;
+  if (!authenticated) return <Login onLogin={(username, remoteProfile) => {localStorage.setItem("studyflow-account", username); setAccountUsername(username); setProfile(remoteProfile || getStoredProfile(username)); setAuthenticated(true);}}/>;
 
   return <div className={`app ${mobileNavOpen ? "navOpen" : ""}`}>
     <button className="mobileMenu" onClick={() => setMobileNavOpen(true)} aria-label="Open navigation"><Menu size={21}/></button>
+    <main>
     <button className="navBackdrop" onClick={() => setMobileNavOpen(false)} aria-label="Close navigation"/>
     <aside className="sidebar">
       <div className="mobileSidebarHead"><span>Workspace</span><button onClick={() => setMobileNavOpen(false)} aria-label="Close navigation"><X size={20}/></button></div>
@@ -183,15 +199,10 @@ function App() {
       <button className="addSubject" onClick={() => {setModal({type: "subject"}); setMobileNavOpen(false);}}><Plus size={17}/> Add Subject</button>
       <div className="sidebarBottom"><div className="tip"><Clock3 size={17}/><div><b>Stay ahead</b><p>Complete tasks before they turn red.</p></div></div></div>
     </aside>
-    <main>
-      <header><div><h1>{selected === "dashboard" ? "Dashboard" : subjects.find(subject => subject.id === selected)?.name}</h1><p>{selected === "dashboard" ? "Keep track of every module, task and activity in one place." : "Manage your requirements and deadlines for this subject."}</p></div><div className="headerActions"><button className="primary" onClick={() => setModal({type: "item", subjectId: selected === "dashboard" ? subjects[0]?.id : selected})}><Plus size={18}/> Add Requirement</button><div className={`profileMenu ${profileOpen ? "open" : ""}`}><button className="profileButton" onClick={() => setProfileOpen(value => !value)} aria-expanded={profileOpen} aria-haspopup="menu"><ProfileAvatar username={accountUsername} photo={profile.photo}/><span className="profileIdentity"><b>{profile.displayName || accountUsername}</b><small>Academic Manager</small></span><ChevronDown size={15}/></button>{profileOpen && <div className="profilePanel" role="menu"><div className="profilePanelHead"><ProfileAvatar username={accountUsername} photo={profile.photo} large/><div><b>{profile.displayName || accountUsername}</b><small>{accountUsername}</small></div></div><button className="profileEdit" onClick={() => {setProfileEditing(true); setProfileOpen(false);}} role="menuitem"><Pencil size={15}/> Edit profile</button><button className="profileLogout" onClick={logout} role="menuitem"><LogOut size={16}/> Log out</button></div>}</div></div></header>
-      {dataError && <div className="dataError" role="alert">{dataError}</div>}
-      {loading && <div className="loadingBar">Syncing your workspace...</div>}
-      {selected === "dashboard" && <><section className="stats"><Stat icon={<BookOpen/>} label="Subjects" value={stats.subjects}/><Stat icon={<FileText/>} label="Requirements" value={stats.total}/><Stat icon={<Clock3/>} label="Pending" value={stats.pending}/><Stat icon={<CheckCircle2/>} label="Completed" value={stats.completed}/><Stat icon={<CircleAlert/>} label="Overdue" value={stats.overdue}/></section><section className="dashboardGrid"><div className="panel"><div className="panelHead"><div><h2>Upcoming deadlines</h2><span>Your next requirements</span></div><CalendarDays size={20}/></div><div className="list">{[...allItems].filter(item => item.status !== "Completed").sort((a, b) => a.deadline.localeCompare(b.deadline)).slice(0, 6).map(item => <ItemRow key={item.id} x={item} onStatusChange={updateStatus} onDelete={remove} onEdit={() => setModal({type: "item", item})}/>)}</div>{allItems.filter(item => item.status !== "Completed").length === 0 && <Empty text="Everything is completed. Great work!"/>}</div><div className="panel"><div className="panelHead"><div><h2>Subjects</h2><span>Quick overview</span></div></div>{subjects.map(subject => <SubjectCard key={subject.id} subject={subject} items={items} onSelect={setSelected}/>)}</div></section></>}
       {selected !== "dashboard" && <SubjectView items={filtered} onStatusChange={updateStatus} onDelete={remove} onEdit={item => setModal({type: "item", item})}/>} 
       {selected === "dashboard" && <section className="panel all"><div className="panelHead"><div><h2>All requirements</h2><span>Search and manage everything</span></div><div className="search"><Search size={17}/><input placeholder="Search..." value={query} onChange={event => setQuery(event.target.value)}/></div></div><div className="table">{filtered.map(item => <ItemRow key={item.id} x={item} showSubject onStatusChange={updateStatus} onDelete={remove} onEdit={() => setModal({type: "item", item})}/>)}</div></section>}
     </main>
-    {modal && (modal.type === "subject" ? <SubjectModal subject={modal.subject} onSave={saveSubject} close={() => setModal(null)}/> : <Modal data={modal} subjects={subjects} onSaveSubject={saveSubject} onSaveItem={saveItem} close={() => setModal(null)}/>)}
+    {modal && (modal.type === "subject" ? <SubjectModal subject={modal.subject} onSave={saveSubject} onDelete={deleteSubject} close={() => setModal(null)}/> : <Modal data={modal} subjects={subjects} onSaveSubject={saveSubject} onSaveItem={saveItem} close={() => setModal(null)}/>)}
     {profileEditing && <ProfileModal username={accountUsername} profile={profile} onSave={saveProfile} close={() => setProfileEditing(false)}/>} 
     {previewFile && <FilePreviewModal file={previewFile} close={() => {URL.revokeObjectURL(previewFile.previewUrl); setPreviewFile(null);}}/>}
   </div>;
@@ -203,14 +214,22 @@ function LoginWithAccounts({onLogin}) {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
-  const submit = event => {
+  const submit = async event => {
     event.preventDefault();
+    setError("");
     const credentials = [[import.meta.env.VITE_APP_USERNAME, import.meta.env.VITE_APP_PASSWORD], [import.meta.env.VITE_APP_USERNAME_2, import.meta.env.VITE_APP_PASSWORD_2]];
     const validAccount = credentials.some(([validUsername]) => username === validUsername);
+    const {data: remoteProfile, error: profileError} = await supabase.from("account_profiles").select("display_name, photo_data_url, password_hash").eq("username", username).maybeSingle();
+    if (profileError) return setError("Could not connect to your account. Please try again.");
     const storedPassword = localStorage.getItem(passwordStorageKey(username));
-    const validPassword = storedPassword ? password === storedPassword : credentials.some(([validUsername, validPassword]) => username === validUsername && password === validPassword);
-    if (validAccount && validPassword) onLogin(username);
-    else setError("That username or password is not correct.");
+    const hashedPassword = remoteProfile?.password_hash;
+    const validPassword = hashedPassword ? hashedPassword === await hashPassword(password) : storedPassword ? password === storedPassword : credentials.some(([validUsername, validPassword]) => username === validUsername && password === validPassword);
+    if (!validAccount || !validPassword) return setError("That username or password is not correct.");
+    const localProfile = getStoredProfile(username);
+    const profile = {displayName: remoteProfile?.display_name || localProfile.displayName || "", photo: remoteProfile?.photo_data_url || localProfile.photo || ""};
+    const passwordHash = hashedPassword || await hashPassword(password);
+    await supabase.from("account_profiles").upsert({username, display_name: profile.displayName, photo_data_url: profile.photo, password_hash: passwordHash}, {onConflict: "username"});
+    onLogin(username, profile);
   };
   return <div className="loginPage">
     <section className="loginArtwork">
@@ -275,10 +294,16 @@ function ProfileModal({username, profile, onSave, close}) {
   const [form, setForm] = useState({displayName: profile.displayName || "", currentPassword: "", newPassword: "", confirmPassword: "", photo: profile.photo || ""});
   const [error, setError] = useState("");
   const changePhoto = event => {const file = event.target.files?.[0]; if (!file) return; if (file.size > 2 * 1024 * 1024) return setError("Profile photos must be smaller than 2 MB."); const reader = new FileReader(); reader.onload = () => setForm(current => ({...current, photo: reader.result})); reader.readAsDataURL(file);};
-  const save = () => {const configuredPassword = username === import.meta.env.VITE_APP_USERNAME ? import.meta.env.VITE_APP_PASSWORD : import.meta.env.VITE_APP_PASSWORD_2; const currentPassword = localStorage.getItem(passwordStorageKey(username)) || configuredPassword; if ((form.newPassword || form.confirmPassword) && form.currentPassword !== currentPassword) return setError("Your current password is not correct."); if (form.newPassword && form.newPassword.length < 6) return setError("Your new password must be at least 6 characters."); if (form.newPassword !== form.confirmPassword) return setError("The new passwords do not match."); onSave(form);};
+  const save = async () => {const configuredPassword = username === import.meta.env.VITE_APP_USERNAME ? import.meta.env.VITE_APP_PASSWORD : import.meta.env.VITE_APP_PASSWORD_2; const currentPassword = localStorage.getItem(passwordStorageKey(username)) || configuredPassword; if ((form.newPassword || form.confirmPassword) && form.currentPassword !== currentPassword) return setError("Your current password is not correct."); if (form.newPassword && form.newPassword.length < 6) return setError("Your new password must be at least 6 characters."); if (form.newPassword !== form.confirmPassword) return setError("The new passwords do not match."); setError(""); try {await onSave(form);} catch (saveError) {setError(saveError.message);}};
   return <div className="overlay"><div className="modal profileModal"><div className="modalHead"><h2>Edit Profile</h2><button onClick={close} aria-label="Close profile editor"><X/></button></div><div className="profilePreview"><ProfileAvatar username={username} photo={form.photo} large/><div><b>{form.displayName || username}</b><small>{username}</small></div></div><label>Display name<input value={form.displayName} onChange={event => setForm({...form, displayName: event.target.value})} placeholder="How should we call you?"/></label><label>Profile photo<input type="file" accept="image/png,image/jpeg,image/webp" onChange={changePhoto}/></label><div className="profileDivider"><span>Change password</span></div><label>Current password<input type="password" value={form.currentPassword} onChange={event => setForm({...form, currentPassword: event.target.value})}/></label><div className="two"><label>New password<input type="password" value={form.newPassword} onChange={event => setForm({...form, newPassword: event.target.value})}/></label><label>Confirm password<input type="password" value={form.confirmPassword} onChange={event => setForm({...form, confirmPassword: event.target.value})}/></label></div>{error && <p className="loginError" role="alert">{error}</p>}<div className="modalActions"><button onClick={close}>Cancel</button><button className="primary" onClick={save}>Save profile</button></div></div></div>;
 }
-function SubjectModal({subject, onSave, close}) { const [form, setForm] = useState({...(subject || {}), name: subject?.name || "", code: subject?.code || "", color: subject?.color || "#2563eb", instructor: subject?.instructor || ""}); const [error, setError] = useState(""); const [saving, setSaving] = useState(false); const save = async () => {if (!form.name.trim()) return setError("Subject name is required."); setSaving(true); setError(""); try {await onSave(form); close();} catch (saveError) {setError(saveError.message);} finally {setSaving(false);}}; return <div className="overlay"><div className="modal"><div className="modalHead"><h2>{subject ? "Edit Subject" : "Add Subject"}</h2><button onClick={close}><X/></button></div><label>Subject name<input value={form.name} onChange={event => setForm({...form, name: event.target.value})}/></label><label>Subject code<input value={form.code} onChange={event => setForm({...form, code: event.target.value})}/></label><label>Instructor<input value={form.instructor} onChange={event => setForm({...form, instructor: event.target.value})} placeholder="Name of instructor"/></label><label>Color<input type="color" value={form.color} onChange={event => setForm({...form, color: event.target.value})}/></label>{error && <p className="loginError" role="alert">{error}</p>}<div className="modalActions"><button onClick={close}>Cancel</button><button className="primary" onClick={save} disabled={saving}>{saving ? "Saving..." : "Save"}</button></div></div></div>; }
+function SubjectModal({subject, onSave, onDelete, close}) {
+  const [form, setForm] = useState({...subject, name: subject?.name || "", code: subject?.code || "", color: subject?.color || "#2563eb", instructor: subject?.instructor || ""});
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const save = async () => {if (!form.name.trim()) return setError("Subject name is required."); setSaving(true); setError(""); try {await onSave(form); close();} catch (saveError) {setError(saveError.message);} finally {setSaving(false);}};
+  return <div className="overlay"><div className="modal"><div className="modalHead"><h2>{subject ? "Edit Subject" : "Add Subject"}</h2><button onClick={close}><X/></button></div><label>Subject name<input value={form.name} onChange={event => setForm({...form, name: event.target.value})}/></label><label>Subject code<input value={form.code} onChange={event => setForm({...form, code: event.target.value})}/></label><label>Instructor<input value={form.instructor} onChange={event => setForm({...form, instructor: event.target.value})} placeholder="Name of instructor"/></label><label>Color<input type="color" value={form.color} onChange={event => setForm({...form, color: event.target.value})}/></label>{error && <p className="loginError" role="alert">{error}</p>}<div className="modalActions subjectModalActions">{subject && <button className="deleteSubject" onClick={() => onDelete(subject)}>Delete subject</button>}<span/><button onClick={close}>Cancel</button><button className="primary" onClick={save} disabled={saving}>{saving ? "Saving..." : "Save"}</button></div></div></div>;
+}
 function Modal({data, subjects, onSaveSubject, onSaveItem, close}) { const isSubject = data.type === "subject"; const old = data.item; const [form, setForm] = useState(old ? {...old, files: old.files || []} : isSubject ? {name: "", code: "", color: "#2563eb"} : {subjectId: data.subjectId || subjects[0]?.id, category: "Task", title: "", description: "", deadline: "", priority: "Medium", status: "Pending", files: []}); const [error, setError] = useState(""); const [saving, setSaving] = useState(false); const save = async () => {if (isSubject && !form.name.trim()) return; if (!isSubject && (!form.title.trim() || !form.deadline)) return; setSaving(true); setError(""); try {if (isSubject) await onSaveSubject(form); else await onSaveItem(form); close();} catch (saveError) {setError(saveError.message);} finally {setSaving(false);}}; const fileChange = event => {const files = [...event.target.files].map(file => ({name: file.name, size: file.size, type: file.type})); setForm({...form, files: [...(form.files || []), ...files]});}; return <div className="overlay"><div className="modal"><div className="modalHead"><h2>{isSubject ? "Add Subject" : old ? "Edit Requirement" : "Add Requirement"}</h2><button onClick={close}><X/></button></div>{isSubject ? <><label>Subject name<input value={form.name} onChange={event => setForm({...form, name: event.target.value})}/></label><label>Subject code<input value={form.code} onChange={event => setForm({...form, code: event.target.value})}/></label><label>Color<input type="color" value={form.color} onChange={event => setForm({...form, color: event.target.value})}/></label></> : <><label>Subject<select value={form.subjectId} onChange={event => setForm({...form, subjectId: event.target.value})}>{subjects.map(subject => <option key={subject.id} value={subject.id}>{subject.name}</option>)}</select></label><label>Category<select value={form.category} onChange={event => setForm({...form, category: event.target.value})}>{["Module", "Task", "Activity", "Others"].map(category => <option key={category}>{category}</option>)}</select></label><label>Title<input value={form.title} onChange={event => setForm({...form, title: event.target.value})}/></label><label>Description<textarea value={form.description} onChange={event => setForm({...form, description: event.target.value})}/></label><div className="two"><label>Deadline<input type="date" value={form.deadline} onChange={event => setForm({...form, deadline: event.target.value})}/></label><label>Priority<select value={form.priority} onChange={event => setForm({...form, priority: event.target.value})}>{["Low", "Medium", "High"].map(priority => <option key={priority}>{priority}</option>)}</select></label></div><label className="upload"><Upload size={18}/> Attach files<input type="file" multiple onChange={fileChange}/></label>{form.files?.length > 0 && <div className="fileList">{form.files.map((file, index) => <span key={index}>📎 {file.name}</span>)}</div>}</>} {error && <p className="loginError" role="alert">{error}</p>}<div className="modalActions"><button onClick={close}>Cancel</button><button className="primary" onClick={save} disabled={saving}>{saving ? "Saving..." : "Save"}</button></div></div></div>; }
 function StatusMenu({status, onChange}) {
   const [open, setOpen] = useState(false);

@@ -439,6 +439,24 @@ body,
   background: #edf0ee;
 }
 
+.subjectModalActions {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+}
+
+.deleteSubject {
+  border: 0;
+  background: transparent;
+  color: #a9352b;
+  font-size: 11px;
+}
+
+.deleteSubject:hover {
+  color: #7f251e;
+  text-decoration: underline;
+}
+
 @media (max-width: 560px) {
   .headerActions {
     display: grid;
