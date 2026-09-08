@@ -11,7 +11,7 @@
 .loginCard{width:min(460px,100%);padding:0;margin:auto}
 .loginCard form{display:flex;flex-direction:column;gap:17px}
 .loginCard label{display:block;margin:0;color:#087847;font-size:14px;font-weight:700}
-.loginInput{height:52px;margin-top:8px;padding:0 14px 0 17px}
+.loginInput{position:relative;height:52px;margin-top:8px;padding:0 14px 0 17px}
 .loginInput input{display:block;margin:0;padding:0;border:0;min-width:0;height:100%;box-shadow:none}
 .loginCard form .loginInput input{width:100%;margin:0;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;outline:0;font-size:14px}
 .loginInput .passwordToggle{width:30px;height:34px;flex:0 0 30px;border:0;padding:0;background:transparent;color:#6f8a86;display:grid;place-items:center}
