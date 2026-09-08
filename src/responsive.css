@@ -310,6 +310,10 @@ body,
   font-size: 12px;
 }
 
+.profilePhoto {
+  object-fit: cover;
+}
+
 .profileIdentity,
 .profilePanelHead div {
   display: flex;
@@ -368,8 +372,71 @@ body,
   text-align: left;
 }
 
+.profileEdit {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 8px;
+  margin-top: 7px;
+  padding: 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #12633f;
+  font-size: 11px;
+  text-align: left;
+}
+
+.profileEdit:hover {
+  background: #e8f5ee;
+}
+
 .profileLogout:hover {
   background: #fff0ed;
+}
+
+.profilePreview {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #edf0ee;
+}
+
+.profilePreview div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.profilePreview b {
+  color: #1c1e21;
+  font-size: 14px;
+}
+
+.profilePreview small {
+  color: #72847c;
+  font-size: 10px;
+}
+
+.profileDivider {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 18px 0 2px;
+  color: #72847c;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .7px;
+}
+
+.profileDivider::after {
+  content: "";
+  height: 1px;
+  flex: 1;
+  background: #edf0ee;
 }
 
 @media (max-width: 560px) {
