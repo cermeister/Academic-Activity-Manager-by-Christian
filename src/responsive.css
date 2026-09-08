@@ -160,3 +160,62 @@ body,
     min-width: 88px;
   }
 }
+
+.statusMenu {
+  position: relative;
+  display: inline-flex;
+}
+
+.statusButton {
+  min-width: 112px;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.statusButton.ongoing {
+  color: #9a6716;
+  background: #fff9df;
+}
+
+.statusButton.completed {
+  color: #18794e;
+  background: #e8f5ee;
+}
+
+.statusChevron {
+  transition: transform .18s ease;
+}
+
+.statusChevron.open {
+  transform: rotate(90deg);
+}
+
+.statusOptions {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 5px);
+  left: 0;
+  min-width: 100%;
+  padding: 4px;
+  background: #fff;
+  border: 1px solid #dadde1;
+  border-radius: 6px;
+  box-shadow: 0 8px 18px rgba(28, 30, 33, .12);
+}
+
+.statusOptions button {
+  display: block;
+  width: 100%;
+  padding: 7px 9px;
+  border: 0;
+  background: transparent;
+  color: #1c1e21;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.statusOptions button:hover,
+.statusOptions button.selected {
+  background: #e8f5ee;
+  color: #12633f;
+}
