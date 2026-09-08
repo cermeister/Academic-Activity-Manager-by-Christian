@@ -225,9 +225,8 @@ function LoginWithAccounts({onLogin}) {
     const validAccount = credentials.some(([validUsername]) => username === validUsername);
     const {data: remoteProfile, error: profileError} = await supabase.from("account_profiles").select("display_name, photo_data_url, password_hash").eq("username", username).maybeSingle();
     if (profileError) return setError("Could not connect to your account. Please try again.");
-    const storedPassword = localStorage.getItem(passwordStorageKey(username));
     const hashedPassword = remoteProfile?.password_hash;
-    const validPassword = hashedPassword ? hashedPassword === await hashPassword(password) : storedPassword ? password === storedPassword : credentials.some(([validUsername, validPassword]) => username === validUsername && password === validPassword);
+    const validPassword = hashedPassword ? hashedPassword === await hashPassword(password) : credentials.some(([validUsername, validPassword]) => username === validUsername && password === validPassword);
     if (!validAccount || !validPassword) return setError("That username or password is not correct.");
     const localProfile = getStoredProfile(username);
     const profile = {displayName: remoteProfile?.display_name || localProfile.displayName || "", photo: remoteProfile?.photo_data_url || localProfile.photo || ""};
