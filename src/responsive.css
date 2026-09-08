@@ -164,39 +164,97 @@ body,
 .statusMenu {
   position: relative;
   display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  min-width: 112px;
-  padding: 7px 9px;
-  border: 1px solid #d5dadd;
-  border-radius: 5px;
-  color: #65676b;
-  background: #f3f4f4;
-  font-size: 10px;
+  z-index: 1;
+}
+
+.statusMenu.open {
+  z-index: 20;
 }
 
 .statusMenu .statusButton {
-  min-width: 0;
-  width: 100%;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font-size: inherit;
-  appearance: none;
-  cursor: pointer;
+  min-width: 112px;
+  justify-content: space-between;
+  gap: 7px;
+  padding: 7px 9px;
+  border: 1px solid #d5dadd;
+  border-radius: 6px;
+  background: #f3f4f4;
+  color: #65676b;
+  font-size: 10px;
+  transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+}
+
+.statusMenu .statusButton:hover {
+  border-color: #aeb8b4;
+  box-shadow: 0 2px 7px rgba(28, 30, 33, .08);
 }
 
 .statusMenu.ongoing {
-  color: #9a6716;
-  background: #fff9df;
+  color: #946313;
 }
 
 .statusMenu.completed {
   color: #18794e;
-  background: #e8f5ee;
 }
 
 .statusChevron {
-  transform: rotate(90deg);
+  transition: transform .18s ease;
+}
+
+.statusMenu.open .statusChevron {
+  transform: rotate(180deg);
+}
+
+.statusOptions {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 5px);
+  right: 0;
+  min-width: 146px;
+  padding: 5px;
+  border: 1px solid #dfe5e1;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 10px 24px rgba(28, 30, 33, .14);
+}
+
+.statusOptions button {
+  display: flex;
+  align-items: center;
+  width: 100% !important;
+  gap: 8px;
+  min-height: 0 !important;
+  padding: 8px 9px !important;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #3f4945;
+  font-size: 11px;
+  text-align: left;
+}
+
+.statusOptions button:hover,
+.statusOptions button.selected {
+  background: #f0f8f3;
+  color: #12633f;
+}
+
+.statusOptions button svg {
+  margin-left: auto;
+}
+
+.statusDot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 50%;
+  background: #9aa3a0;
+}
+
+.statusDot.ongoing {
+  background: #d49a2a;
+}
+
+.statusDot.completed {
+  background: #2c9a64;
 }
