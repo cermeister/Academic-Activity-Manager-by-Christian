@@ -479,3 +479,37 @@ body,
     padding-right: 7px;
   }
 }
+
+@media (min-width: 768px) and (max-width: 1024px) and (orientation: portrait) {
+  .item {
+    display: grid;
+    grid-template-columns: 48px minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    align-items: start;
+    gap: 10px 11px;
+  }
+
+  .deadline {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    flex: 0 0 44px;
+    width: 44px;
+    height: 46px;
+  }
+
+  .itemMain {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .actions {
+    grid-column: 2;
+    grid-row: 2;
+    width: 100%;
+    margin: 0;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+}
