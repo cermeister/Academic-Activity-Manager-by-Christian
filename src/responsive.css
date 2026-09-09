@@ -420,6 +420,37 @@ body,
   font-size: 10px;
 }
 
+.logoSetting {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin-top: 14px;
+}
+
+.logoSetting > img {
+  width: 52px;
+  height: 52px;
+  flex: 0 0 52px;
+  object-fit: contain;
+  padding: 4px;
+  border: 1px solid #dce9e2;
+  border-radius: 8px;
+  background: #f8fcfa;
+}
+
+.logoSetting > label {
+  flex: 1;
+  min-width: 0;
+}
+
+.logoSetting small {
+  display: block;
+  margin-top: 4px;
+  color: #72847c;
+  font-size: 10px;
+  font-weight: 400;
+}
+
 .profileDivider {
   display: flex;
   align-items: center;
