@@ -19,6 +19,7 @@ const sortByDeadlineAndPriority = (a, b) => a.deadline.localeCompare(b.deadline)
 const profileStorageKey = username => `studyflow-profile-${username}`;
 const logoStorageKey = "studyflow-application-logo";
 const passwordStorageKey = username => `studyflow-password-${username}`;
+const workspaceStateKey = username => `studyflow-workspace-${username}`;
 const viewerUsername = import.meta.env.VITE_VIEWER_USERNAME || import.meta.env.VITE_APP_USERNAME_2;
 const getStoredProfile = username => {if (!username) return {displayName: "", photo: ""}; try {return {...{displayName: "", photo: ""}, ...JSON.parse(localStorage.getItem(profileStorageKey(username)) || "{}")};} catch {return {displayName: "", photo: ""};}};
 const getStoredLogo = () => localStorage.getItem(logoStorageKey) || "/sjit-logo.png";
@@ -37,13 +38,13 @@ const normalizeSectionState = (sectionRows, subjectRows) => {
 function App() {
   const Login = LoginWithAccounts;
   const [accountUsername, setAccountUsername] = useState(() => localStorage.getItem("studyflow-account") || "");
-  const [managedAccount, setManagedAccount] = useState("");
+  const [managedAccount, setManagedAccount] = useState(() => {const username = localStorage.getItem("studyflow-account") || ""; try {return JSON.parse(localStorage.getItem(workspaceStateKey(username)) || "{}").managedAccount || "";} catch {return "";}});
   const [accessPanelOpen, setAccessPanelOpen] = useState(false);
   const [authenticated, setAuthenticated] = useState(() => Boolean(localStorage.getItem("studyflow-account")));
   const [subjects, setSubjects] = useState([]);
   const [sections, setSections] = useState([]);
   const [items, setItems] = useState([]);
-  const [selected, setSelected] = useState("dashboard");
+  const [selected, setSelected] = useState(() => {const username = localStorage.getItem("studyflow-account") || ""; try {return JSON.parse(localStorage.getItem(workspaceStateKey(username)) || "{}").selected || "dashboard";} catch {return "dashboard";}});
   const [query, setQuery] = useState("");
   const [modal, setModal] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -60,6 +61,11 @@ function App() {
   const [allRequirementsPage, setAllRequirementsPage] = useState(1);
   const [completedRequirementsPage, setCompletedRequirementsPage] = useState(1);
   const workspaceUsername = managedAccount || accountUsername;
+
+  useEffect(() => {
+    if (!accountUsername) return;
+    localStorage.setItem(workspaceStateKey(accountUsername), JSON.stringify({managedAccount, selected}));
+  }, [accountUsername, managedAccount, selected]);
 
   useEffect(() => setProfile(getStoredProfile(accountUsername)), [accountUsername]);
 
