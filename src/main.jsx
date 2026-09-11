@@ -53,7 +53,8 @@ function App() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileEditing, setProfileEditing] = useState(false);
   const [profile, setProfile] = useState(() => getStoredProfile(accountUsername));
-  const isViewer = profile.role === "viewer" || accountUsername === viewerUsername;
+  const isViewer = profile.role === "viewer";
+  const isAdmin = accountUsername === import.meta.env.VITE_APP_USERNAME || profile.role === "admin";
   const [logo, setLogo] = useState(getStoredLogo);
   const [upcomingPage, setUpcomingPage] = useState(1);
   const [allRequirementsPage, setAllRequirementsPage] = useState(1);
@@ -226,15 +227,15 @@ function App() {
       <div className="mobileSidebarHead"><span>Workspace</span><button onClick={() => setMobileNavOpen(false)} aria-label="Close navigation"><X size={20}/></button></div>
       <div className="brand"><div className="brandIcon"><img src={logo} alt="Saint Joseph Institute of Technology logo"/></div><div><b>Saint Joseph Institute of Technology - ETEEAP 2026-2027</b><span>{managedAccount ? `Managing ${managedAccount}` : "All rights reserved to cermeister"}</span></div></div>
       <button className={`nav ${selected === "dashboard" ? "active" : ""}`} onClick={() => {setSelected("dashboard"); setMobileNavOpen(false);}}><LayoutDashboard size={18}/>Dashboard</button>
-      {!isViewer && managedAccount && <button className="backWorkspaceButton" onClick={() => {setManagedAccount(""); setSelected("dashboard"); setModal(null); setQuery(""); setMobileNavOpen(false);}}><ArrowRight size={16}/> Back to my workspace</button>}
-      {!isViewer && <button className="accessButton" onClick={() => setAccessPanelOpen(true)}><LockKeyhole size={16}/>Account access</button>}
+      {isAdmin && managedAccount && <button className="backWorkspaceButton" onClick={() => {setManagedAccount(""); setSelected("dashboard"); setModal(null); setQuery(""); setMobileNavOpen(false);}}><ArrowRight size={16}/> Back to my workspace</button>}
+      {isAdmin && <button className="accessButton" onClick={() => setAccessPanelOpen(true)}><LockKeyhole size={16}/>Account access</button>}
       <div className="sideTitle">SUBJECTS</div>
       <SubjectSections readOnly={isViewer} sections={sections} subjects={subjects} selected={selected} onSelect={id => {setSelected(id); setMobileNavOpen(false);}} onRename={renameSection} onMove={moveSubject} onEdit={subject => {setModal({type: "subject", subject}); setMobileNavOpen(false);}}/>
       {!isViewer && <button className="addSubject" onClick={() => {setModal({type: "subject"}); setMobileNavOpen(false);}}><Plus size={17}/> Add Subject</button>}
       <div className="sidebarBottom"><div className="tip"><Clock3 size={17}/><div><b>Stay ahead</b><p>Complete tasks before they turn red.</p></div></div></div>
     </aside>
     <main>
-      {!isViewer && managedAccount && <button className="workspaceReturn" onClick={() => {setManagedAccount(""); setSelected("dashboard"); setModal(null); setQuery("");}}><ArrowRight size={16}/>Back to admin workspace</button>}
+      {isAdmin && managedAccount && <button className="workspaceReturn" onClick={() => {setManagedAccount(""); setSelected("dashboard"); setModal(null); setQuery("");}}><ArrowRight size={16}/>Back to admin workspace</button>}
       <header><div><h1>{selected === "dashboard" ? "Dashboard" : subjects.find(subject => subject.id === selected)?.name}</h1><p>{selected === "dashboard" ? "Keep track of every module, task and activity in one place." : "Manage your requirements and deadlines for this subject."}</p></div><div className="headerActions"><button className="primary" onClick={() => setModal({type: "item", subjectId: selected === "dashboard" ? subjects[0]?.id : selected})}><Plus size={18}/> Add Requirement</button><div className={`profileMenu ${profileOpen ? "open" : ""}`}><button className="profileButton" onClick={() => setProfileOpen(value => !value)} aria-expanded={profileOpen} aria-haspopup="menu"><ProfileAvatar username={accountUsername} photo={profile.photo}/><span className="profileIdentity"><b>{profile.displayName || accountUsername}</b><small>Academic Manager</small></span><ChevronDown size={15}/></button>{profileOpen && <div className="profilePanel" role="menu"><div className="profilePanelHead"><ProfileAvatar username={accountUsername} photo={profile.photo} large/><div><b>{profile.displayName || accountUsername}</b><small>{accountUsername}</small></div></div><button className="profileEdit" onClick={() => {setProfileEditing(true); setProfileOpen(false);}} role="menuitem"><Pencil size={15}/> Edit profile</button><button className="profileLogout" onClick={logout} role="menuitem"><LogOut size={16}/> Log out</button></div>}</div></div></header>
       {dataError && <div className="dataError" role="alert">{dataError}</div>}
       {loading && <div className="loadingBar">Syncing your workspace...</div>}
@@ -242,7 +243,7 @@ function App() {
       {selected !== "dashboard" && <SubjectView items={filtered} onStatusChange={updateStatus} onDelete={remove} onEdit={item => setModal({type: "item", item})}/>} 
       {selected === "dashboard" && <><section className="panel all"><div className="panelHead"><div><h2>All requirements</h2><span>Search and manage everything</span></div><div className="search"><Search size={17}/><input placeholder="Search..." value={query} onChange={event => setQuery(event.target.value)}/></div></div><div className="table">{visibleActiveRequirements.map(item => <ItemRow key={item.id} x={item} showSubject onStatusChange={updateStatus} onDelete={remove} onEdit={() => setModal({type: "item", item})}/>)}</div>{!activeRequirements.length && <Empty text="No active requirements found."/>}{activeRequirements.length > 0 && <Pagination page={visibleAllRequirementsPage} pageCount={allRequirementsPageCount} onPageChange={setAllRequirementsPage}/>}</section><section className="panel all completedRequirements"><div className="panelHead"><div><h2>Completed requirements</h2><span>Finished work</span></div></div><div className="table">{visibleCompletedRequirements.map(item => <ItemRow key={item.id} x={item} showSubject onStatusChange={updateStatus} onDelete={remove} onEdit={() => setModal({type: "item", item})}/>)}</div>{!completedRequirements.length && <Empty text="No completed requirements found."/>}{completedRequirements.length > 0 && <Pagination page={visibleCompletedRequirementsPage} pageCount={completedRequirementsPageCount} onPageChange={setCompletedRequirementsPage}/>}</section></>}
     </main>
-    {!isViewer && accessPanelOpen && <AccessPanel managedAccount={managedAccount} onSelect={username => {setManagedAccount(username); setSelected("dashboard"); setAccessPanelOpen(false);}} onClose={() => setAccessPanelOpen(false)}/>} 
+    {isAdmin && accessPanelOpen && <AccessPanel managedAccount={managedAccount} onSelect={username => {setManagedAccount(username); setSelected("dashboard"); setAccessPanelOpen(false);}} onClose={() => setAccessPanelOpen(false)}/>} 
     {modal && (modal.type === "subject" ? <SubjectModal subject={modal.subject} onSave={saveSubject} onDelete={deleteSubject} close={() => setModal(null)}/> : <Modal data={modal} subjects={subjects} onSaveSubject={saveSubject} onSaveItem={saveItem} close={() => setModal(null)}/>)}
     {profileEditing && <ProfileModal username={accountUsername} profile={profile} logo={logo} onSave={async form => {await saveProfile(form); localStorage.setItem(logoStorageKey, form.logo || "/sjit-logo.png"); setLogo(form.logo || "/sjit-logo.png");}} close={() => setProfileEditing(false)}/>} 
     {previewFile && <FilePreviewModal file={previewFile} close={() => {URL.revokeObjectURL(previewFile.previewUrl); setPreviewFile(null);}}/>}
@@ -266,7 +267,7 @@ function LoginWithAccounts({logo, onLogin}) {
     const validPassword = hashedPassword ? hashedPassword === await hashPassword(password) : credentials.some(([validUsername, validPassword]) => username === validUsername && password === validPassword);
     if (!validAccount || !validPassword) return setError("That username or password is not correct.");
     const localProfile = getStoredProfile(username);
-    const profile = {displayName: remoteProfile?.display_name || localProfile.displayName || "", photo: remoteProfile?.photo_data_url || localProfile.photo || "", role: remoteProfile?.role || (username === viewerUsername ? "viewer" : "admin")};
+    const profile = {displayName: remoteProfile?.display_name || localProfile.displayName || "", photo: remoteProfile?.photo_data_url || localProfile.photo || "", role: remoteProfile?.role || (username === viewerUsername ? "editor" : "admin")};
     const passwordHash = hashedPassword || await hashPassword(password);
     await supabase.from("account_profiles").upsert({username, display_name: profile.displayName, photo_data_url: profile.photo, password_hash: passwordHash}, {onConflict: "username"});
     onLogin(username, profile);
