@@ -28,6 +28,9 @@
 .workspaceReturn{display:flex;align-items:center;gap:7px;margin:0 0 10px auto;padding:7px 11px;border:1px solid #b9d8c8;border-radius:6px;background:#fff;color:#18794e;font-size:11px;font-weight:700;cursor:pointer}
 .workspaceReturn svg{transform:rotate(180deg)}
 .workspaceReturn:hover{background:#e8f5ee}
+.seeMoreButton{border:0;padding:0;background:transparent;color:#18794e;font:inherit;font-weight:700;cursor:pointer;white-space:nowrap}
+.seeMoreButton:hover{text-decoration:underline}
+.descriptionExpanded{overflow-wrap:anywhere}
 .accessPanel{max-width:440px}
 .accessPanel .modalHead span{display:block;margin-top:4px;color:#72847c;font-size:12px}
 .accessNote{display:flex;gap:10px;align-items:flex-start;margin-top:16px;padding:12px;border:1px solid #dce9e2;border-radius:7px;background:#f5faf7;color:#18794e}
