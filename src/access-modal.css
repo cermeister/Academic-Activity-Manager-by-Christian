@@ -173,3 +173,25 @@
     width: 100%;
   }
 }
+
+.modal .noDeadlineToggle {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  min-height: 30px;
+  margin-top: 6px;
+  padding: 6px 8px;
+  border: 1px solid #dce9e2;
+  border-radius: 6px;
+  background: #f7fbf8;
+  color: #527066;
+  line-height: 1.2;
+}
+
+.modal .noDeadlineToggle input {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  margin: 0;
+}
