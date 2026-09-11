@@ -22,6 +22,9 @@
 .viewerMode .subjectNav{cursor:pointer}
 .accessButton{display:flex;align-items:center;gap:8px;width:calc(100% - 24px);margin:10px 12px 14px;padding:9px 12px;border:1px solid #cfe1d8;border-radius:6px;background:#f5faf7;color:#18794e;font-size:12px;font-weight:700;cursor:pointer}
 .accessButton:hover{background:#e8f5ee}
+.backWorkspaceButton{display:flex;align-items:center;gap:8px;width:calc(100% - 24px);margin:10px 12px 0;padding:9px 12px;border:1px solid #b9d8c8;border-radius:6px;background:#18794e;color:#fff;font-size:12px;font-weight:700;cursor:pointer}
+.backWorkspaceButton svg{transform:rotate(180deg)}
+.backWorkspaceButton:hover{background:#12633f}
 .accessPanel{max-width:440px}
 .accessPanel .modalHead span{display:block;margin-top:4px;color:#72847c;font-size:12px}
 .accessNote{display:flex;gap:10px;align-items:flex-start;margin-top:16px;padding:12px;border:1px solid #dce9e2;border-radius:7px;background:#f5faf7;color:#18794e}

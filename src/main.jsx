@@ -224,8 +224,9 @@ function App() {
     <button className="navBackdrop" onClick={() => setMobileNavOpen(false)} aria-label="Close navigation"/>
     <aside className="sidebar">
       <div className="mobileSidebarHead"><span>Workspace</span><button onClick={() => setMobileNavOpen(false)} aria-label="Close navigation"><X size={20}/></button></div>
-      <div className="brand"><div className="brandIcon"><img src={logo} alt="Saint Joseph Institute of Technology logo"/></div><div><b>Saint Joseph Institute of Technology - ETEEAP 2026-2027</b><span>All rights reserved to cermeister</span></div></div>
+      <div className="brand"><div className="brandIcon"><img src={logo} alt="Saint Joseph Institute of Technology logo"/></div><div><b>Saint Joseph Institute of Technology - ETEEAP 2026-2027</b><span>{managedAccount ? `Managing ${managedAccount}` : "All rights reserved to cermeister"}</span></div></div>
       <button className={`nav ${selected === "dashboard" ? "active" : ""}`} onClick={() => {setSelected("dashboard"); setMobileNavOpen(false);}}><LayoutDashboard size={18}/>Dashboard</button>
+      {!isViewer && managedAccount && <button className="backWorkspaceButton" onClick={() => {setManagedAccount(""); setSelected("dashboard"); setModal(null); setQuery(""); setMobileNavOpen(false);}}><ArrowRight size={16}/> Back to my workspace</button>}
       {!isViewer && <button className="accessButton" onClick={() => setAccessPanelOpen(true)}><LockKeyhole size={16}/>Account access</button>}
       <div className="sideTitle">SUBJECTS</div>
       <SubjectSections readOnly={isViewer} sections={sections} subjects={subjects} selected={selected} onSelect={id => {setSelected(id); setMobileNavOpen(false);}} onRename={renameSection} onMove={moveSubject} onEdit={subject => {setModal({type: "subject", subject}); setMobileNavOpen(false);}}/>
