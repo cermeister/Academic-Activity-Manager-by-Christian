@@ -18,6 +18,8 @@
 .loginInput .passwordToggle:hover{color:#087847;background:#eef8f3;border-radius:6px}
 .loginInput .passwordToggle:focus-visible{outline:2px solid #18794e;outline-offset:1px}
 .loginError{margin:0;color:#a9352b;font-size:12px}
+.loginTip a{color:#16804f;font-size:16px;font-weight:800;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:2px}
+.loginTip a:hover{color:#0d633c}
 .viewerMode .addSubject,.viewerMode .headerActions>.primary,.viewerMode .actions,.viewerMode .subjectEdit,.viewerMode .sectionEdit,.viewerMode .profileEdit{display:none!important}
 .viewerMode .subjectNav{cursor:pointer}
 .accessButton{display:flex;align-items:center;gap:8px;width:calc(100% - 24px);margin:10px 12px 14px;padding:9px 12px;border:1px solid #cfe1d8;border-radius:6px;background:#f5faf7;color:#18794e;font-size:12px;font-weight:700;cursor:pointer}
