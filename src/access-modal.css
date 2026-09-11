@@ -1,0 +1,175 @@
+.accessPanel {
+  width: min(560px, 100%);
+  padding: 24px;
+  border-radius: 14px;
+}
+
+.accessPanel .modalHead {
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e8efeb;
+}
+
+.accessPanel .modalHead h2 {
+  margin: 0;
+  color: #163d2c;
+  font-size: 20px;
+  letter-spacing: -0.2px;
+}
+
+.accessPanel .modalHead span {
+  max-width: 38ch;
+  color: #71847b;
+  line-height: 1.45;
+}
+
+.accountAccessList {
+  display: grid;
+  gap: 9px;
+}
+
+.accessAccount {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #e2ebe6;
+  border-radius: 10px;
+  background: #fff;
+  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+.accessAccount:hover,
+.accessAccount.selected {
+  border-color: #b8d8c6;
+  background: #f7fcf9;
+  box-shadow: 0 3px 12px rgba(22, 91, 58, 0.08);
+}
+
+.accessAccountIdentity {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+
+.accessAvatar {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  border-radius: 9px;
+  background: #e6f4ec;
+  color: #18794e;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.accessAccountCopy {
+  min-width: 0;
+}
+
+.accessAccountTitle {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  line-height: 1.2;
+}
+
+.accessAccountTitle b {
+  color: #1c2f26;
+  font-size: 13px;
+}
+
+.accessRole {
+  padding: 3px 6px;
+  border-radius: 999px;
+  background: #eef7f2;
+  color: #4f7563;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.45px;
+  text-transform: uppercase;
+}
+
+.accessWorkspace {
+  display: block;
+  margin-top: 4px;
+  overflow: hidden;
+  color: #77877f;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.accessAccountAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding: 8px 10px 8px 12px;
+  border: 1px solid #c9e1d3;
+  border-radius: 7px;
+  background: #18794e;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 750;
+  white-space: nowrap;
+  transition: background 160ms ease, transform 160ms ease;
+}
+
+.accessAccountAction:hover {
+  background: #12633f;
+  transform: translateY(-1px);
+}
+
+.accessNote {
+  margin-top: 16px;
+}
+
+.accessPanelFooter {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid #e8efeb;
+}
+
+.accessPanelFooter button {
+  min-height: 36px;
+  padding: 8px 14px;
+  border: 1px solid #d5e1db;
+  border-radius: 7px;
+  background: #fff;
+  color: #527066;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.accessPanelFooter button:hover {
+  background: #f3f8f5;
+  color: #18794e;
+}
+
+@media (max-width: 560px) {
+  .accessPanel {
+    padding: 18px;
+    border-radius: 12px;
+  }
+
+  .accessAccount {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .accessAccountAction {
+    width: 100%;
+  }
+}
