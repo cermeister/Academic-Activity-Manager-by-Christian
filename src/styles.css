@@ -20,6 +20,12 @@
 .loginError{margin:0;color:#a9352b;font-size:12px}
 .viewerMode .addSubject,.viewerMode .headerActions>.primary,.viewerMode .actions,.viewerMode .subjectEdit,.viewerMode .sectionEdit,.viewerMode .profileEdit{display:none!important}
 .viewerMode .subjectNav{cursor:pointer}
+.accessButton{display:flex;align-items:center;gap:8px;width:calc(100% - 24px);margin:10px 12px 14px;padding:9px 12px;border:1px solid #cfe1d8;border-radius:6px;background:#f5faf7;color:#18794e;font-size:12px;font-weight:700;cursor:pointer}
+.accessButton:hover{background:#e8f5ee}
+.accessPanel{max-width:440px}
+.accessPanel .modalHead span{display:block;margin-top:4px;color:#72847c;font-size:12px}
+.accessNote{display:flex;gap:10px;align-items:flex-start;margin-top:16px;padding:12px;border:1px solid #dce9e2;border-radius:7px;background:#f5faf7;color:#18794e}
+.accessNote p{margin:0;color:#527066;font-size:12px;line-height:1.5}
 @media (max-width:900px){.loginPage{display:block}.loginArtwork{min-height:520px;padding:24px 26px 35px}.loginMain{min-height:auto;padding:48px 28px 56px}.loginCard{width:min(460px,100%)}}
 .app{overflow-x:clip}.mobileMenu,.navBackdrop,.mobileSidebarHead{display:none}.sidebar{min-width:0}.sidebar .brand b,.sidebar .brand span,.subjectLabel,.sectionHeading span{overflow-wrap:anywhere}.app>main{min-width:0;width:100%}.stats .stat,.dashboardGrid>.panel,.panel.all{min-width:0}.subjectCard,.item,.itemMain{min-width:0}.subjectCard .grow{min-width:0}.subjectCard small,.item h3,.item p,.meta{overflow-wrap:anywhere}.actions{flex-wrap:wrap}.overlay{padding:clamp(14px,4vw,32px);overflow-y:auto}.modal{width:min(540px,100%);max-height:calc(100dvh - 28px);overflow-y:auto}.modal input,.modal select,.modal textarea{max-width:100%}
 @media (max-width:1180px){.sidebar{width:230px;flex-basis:230px;padding-inline:12px}.brand{padding-inline:6px}.brand b{font-size:14px}.main,main{max-width:none}.app>main{padding-inline:clamp(20px,4vw,42px)}.stats{grid-template-columns:repeat(3,minmax(0,1fr))}.dashboardGrid{grid-template-columns:1fr 1fr}}

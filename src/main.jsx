@@ -37,6 +37,8 @@ const normalizeSectionState = (sectionRows, subjectRows) => {
 function App() {
   const Login = LoginWithAccounts;
   const [accountUsername, setAccountUsername] = useState(() => localStorage.getItem("studyflow-account") || "");
+  const [managedAccount, setManagedAccount] = useState("");
+  const [accessPanelOpen, setAccessPanelOpen] = useState(false);
   const [authenticated, setAuthenticated] = useState(() => Boolean(localStorage.getItem("studyflow-account")));
   const [subjects, setSubjects] = useState([]);
   const [sections, setSections] = useState([]);
@@ -56,18 +58,19 @@ function App() {
   const [upcomingPage, setUpcomingPage] = useState(1);
   const [allRequirementsPage, setAllRequirementsPage] = useState(1);
   const [completedRequirementsPage, setCompletedRequirementsPage] = useState(1);
+  const workspaceUsername = managedAccount || accountUsername;
 
   useEffect(() => setProfile(getStoredProfile(accountUsername)), [accountUsername]);
 
   useEffect(() => {
-    if (!authenticated || !accountUsername) return;
+    if (!authenticated || !workspaceUsername) return;
     let active = true;
     const loadData = async () => {
       setLoading(true);
       const [sectionResult, subjectResult, itemResult, profileResult] = await Promise.all([
-        supabase.from("subject_sections").select("*").eq("account_username", accountUsername).order("sort_order"),
-        supabase.from("subjects").select("*").eq("account_username", accountUsername).order("sort_order"),
-        supabase.from("requirements").select("*").eq("account_username", accountUsername).order("deadline"),
+        supabase.from("subject_sections").select("*").eq("account_username", workspaceUsername).order("sort_order"),
+        supabase.from("subjects").select("*").eq("account_username", workspaceUsername).order("sort_order"),
+        supabase.from("requirements").select("*").eq("account_username", workspaceUsername).order("deadline"),
         supabase.from("account_profiles").select("display_name, photo_data_url, role").eq("username", accountUsername).maybeSingle()
       ]);
       if (!active) return;
@@ -83,7 +86,7 @@ function App() {
     };
     loadData();
     return () => { active = false; };
-  }, [authenticated, accountUsername]);
+  }, [authenticated, accountUsername, workspaceUsername]);
 
   useEffect(() => {
     const previewAttachment = event => {
@@ -126,14 +129,14 @@ function App() {
   const updateStatus = async (id, status) => {
     if (isViewer) return;
     const submittedAt = status === "Completed" ? new Date().toISOString() : null;
-    const {data, error} = await supabase.from("requirements").update({status, submitted_at: submittedAt}).eq("id", id).eq("account_username", accountUsername).select().single();
+    const {data, error} = await supabase.from("requirements").update({status, submitted_at: submittedAt}).eq("id", id).eq("account_username", workspaceUsername).select().single();
     if (error) return setDataError(error.message);
     setItems(current => current.map(item => item.id === id ? mapItem(data) : item));
   };
   const remove = async id => {
     if (isViewer) return;
     if (!confirm("Delete this requirement?")) return;
-    const {error} = await supabase.from("requirements").delete().eq("id", id).eq("account_username", accountUsername);
+    const {error} = await supabase.from("requirements").delete().eq("id", id).eq("account_username", workspaceUsername);
     if (error) return setDataError(error.message);
     setItems(current => current.filter(item => item.id !== id));
   };
@@ -141,8 +144,8 @@ function App() {
     if (isViewer) return;
     const fallbackSectionId = sections[0]?.id || DEFAULT_SECTION.id;
     const sectionId = form.sectionId || fallbackSectionId;
-    const payload = {account_username: accountUsername, name: form.name.trim(), code: form.code.trim() || null, color: form.color, instructor: form.instructor.trim() || null, section_id: sectionId, sort_order: form.sortOrder ?? subjects.filter(subject => subject.sectionId === sectionId).length};
-    const result = form.id ? await supabase.from("subjects").update(payload).eq("id", form.id).eq("account_username", accountUsername).select().single() : await supabase.from("subjects").insert(payload).select().single();
+    const payload = {account_username: workspaceUsername, name: form.name.trim(), code: form.code.trim() || null, color: form.color, instructor: form.instructor.trim() || null, section_id: sectionId, sort_order: form.sortOrder ?? subjects.filter(subject => subject.sectionId === sectionId).length};
+    const result = form.id ? await supabase.from("subjects").update(payload).eq("id", form.id).eq("account_username", workspaceUsername).select().single() : await supabase.from("subjects").insert(payload).select().single();
     if (result.error) throw new Error(result.error.message);
     const subject = mapSubject(result.data);
     const nextSubject = {...subject, sectionId: subject.sectionId || fallbackSectionId, sortOrder: Number.isFinite(subject.sortOrder) ? subject.sortOrder : 0};
@@ -151,7 +154,7 @@ function App() {
   const deleteSubject = async subject => {
     if (isViewer) return;
     if (!subject?.id || !confirm(`Delete ${subject.name}? Its requirements will also be deleted.`)) return;
-    const {error} = await supabase.from("subjects").delete().eq("id", subject.id).eq("account_username", accountUsername);
+    const {error} = await supabase.from("subjects").delete().eq("id", subject.id).eq("account_username", workspaceUsername);
     if (error) return setDataError(error.message);
     setSubjects(current => current.filter(item => item.id !== subject.id));
     setItems(current => current.filter(item => item.subjectId !== subject.id));
@@ -162,7 +165,7 @@ function App() {
     if (isViewer) return;
     const cleanName = name.trim();
     if (!cleanName || cleanName === section.name) return;
-    const {error} = await supabase.from("subject_sections").update({name: cleanName}).eq("id", section.id).eq("account_username", accountUsername);
+    const {error} = await supabase.from("subject_sections").update({name: cleanName}).eq("id", section.id).eq("account_username", workspaceUsername);
     if (error) return setDataError(error.message);
     setSections(current => current.map(item => item.id === section.id ? {...item, name: cleanName} : item));
   };
@@ -174,10 +177,10 @@ function App() {
     const sectionSubjects = nextSubjects.filter(subject => subject.sectionId === sectionId).sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
     const insertAt = beforeSubjectId ? sectionSubjects.findIndex(subject => subject.id === beforeSubjectId) : sectionSubjects.length;
     sectionSubjects.splice(insertAt < 0 ? sectionSubjects.length : insertAt, 0, {...moving, sectionId});
-    const updates = sectionSubjects.map((subject, index) => supabase.from("subjects").update({section_id: sectionId, sort_order: index}).eq("id", subject.id).eq("account_username", accountUsername));
+    const updates = sectionSubjects.map((subject, index) => supabase.from("subjects").update({section_id: sectionId, sort_order: index}).eq("id", subject.id).eq("account_username", workspaceUsername));
     if (moving.sectionId && moving.sectionId !== sectionId) {
       const oldSectionSubjects = nextSubjects.filter(subject => subject.sectionId === moving.sectionId).sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
-      updates.push(...oldSectionSubjects.map((subject, index) => supabase.from("subjects").update({sort_order: index}).eq("id", subject.id).eq("account_username", accountUsername)));
+      updates.push(...oldSectionSubjects.map((subject, index) => supabase.from("subjects").update({sort_order: index}).eq("id", subject.id).eq("account_username", workspaceUsername)));
     }
     const results = await Promise.all(updates);
     const error = results.find(result => result.error)?.error;
@@ -194,8 +197,8 @@ function App() {
     const selectedFiles = [...(document.querySelector('input[type="file"]')?.files || [])];
     const uploadedFiles = await Promise.all(selectedFiles.map(file => new Promise((resolve, reject) => {const reader = new FileReader(); reader.onload = () => resolve({name: file.name, size: file.size, type: file.type, dataUrl: reader.result}); reader.onerror = reject; reader.readAsDataURL(file);}))); 
     const existingFiles = (form.files || []).filter(file => !selectedFiles.some(selectedFile => selectedFile.name === file.name));
-    const payload = {account_username: accountUsername, subject_id: form.subjectId, category: form.category, title: form.title.trim(), description: form.description.trim() || null, deadline: form.deadline, priority: form.priority, status: form.status || "Pending", submitted_at: form.submittedAt || null, files: [...existingFiles, ...uploadedFiles]};
-    const result = form.id ? await supabase.from("requirements").update(payload).eq("id", form.id).eq("account_username", accountUsername).select().single() : await supabase.from("requirements").insert(payload).select().single();
+    const payload = {account_username: workspaceUsername, subject_id: form.subjectId, category: form.category, title: form.title.trim(), description: form.description.trim() || null, deadline: form.deadline, priority: form.priority, status: form.status || "Pending", submitted_at: form.submittedAt || null, files: [...existingFiles, ...uploadedFiles]};
+    const result = form.id ? await supabase.from("requirements").update(payload).eq("id", form.id).eq("account_username", workspaceUsername).select().single() : await supabase.from("requirements").insert(payload).select().single();
     if (result.error) throw new Error(result.error.message);
     const item = mapItem(result.data);
     setItems(current => form.id ? current.map(existing => existing.id === form.id ? item : existing) : [...current, item]);
@@ -223,6 +226,7 @@ function App() {
       <div className="mobileSidebarHead"><span>Workspace</span><button onClick={() => setMobileNavOpen(false)} aria-label="Close navigation"><X size={20}/></button></div>
       <div className="brand"><div className="brandIcon"><img src={logo} alt="Saint Joseph Institute of Technology logo"/></div><div><b>Saint Joseph Institute of Technology - ETEEAP 2026-2027</b><span>All rights reserved to cermeister</span></div></div>
       <button className={`nav ${selected === "dashboard" ? "active" : ""}`} onClick={() => {setSelected("dashboard"); setMobileNavOpen(false);}}><LayoutDashboard size={18}/>Dashboard</button>
+      {!isViewer && <button className="accessButton" onClick={() => setAccessPanelOpen(true)}><LockKeyhole size={16}/>Account access</button>}
       <div className="sideTitle">SUBJECTS</div>
       <SubjectSections readOnly={isViewer} sections={sections} subjects={subjects} selected={selected} onSelect={id => {setSelected(id); setMobileNavOpen(false);}} onRename={renameSection} onMove={moveSubject} onEdit={subject => {setModal({type: "subject", subject}); setMobileNavOpen(false);}}/>
       {!isViewer && <button className="addSubject" onClick={() => {setModal({type: "subject"}); setMobileNavOpen(false);}}><Plus size={17}/> Add Subject</button>}
@@ -236,6 +240,7 @@ function App() {
       {selected !== "dashboard" && <SubjectView items={filtered} onStatusChange={updateStatus} onDelete={remove} onEdit={item => setModal({type: "item", item})}/>} 
       {selected === "dashboard" && <><section className="panel all"><div className="panelHead"><div><h2>All requirements</h2><span>Search and manage everything</span></div><div className="search"><Search size={17}/><input placeholder="Search..." value={query} onChange={event => setQuery(event.target.value)}/></div></div><div className="table">{visibleActiveRequirements.map(item => <ItemRow key={item.id} x={item} showSubject onStatusChange={updateStatus} onDelete={remove} onEdit={() => setModal({type: "item", item})}/>)}</div>{!activeRequirements.length && <Empty text="No active requirements found."/>}{activeRequirements.length > 0 && <Pagination page={visibleAllRequirementsPage} pageCount={allRequirementsPageCount} onPageChange={setAllRequirementsPage}/>}</section><section className="panel all completedRequirements"><div className="panelHead"><div><h2>Completed requirements</h2><span>Finished work</span></div></div><div className="table">{visibleCompletedRequirements.map(item => <ItemRow key={item.id} x={item} showSubject onStatusChange={updateStatus} onDelete={remove} onEdit={() => setModal({type: "item", item})}/>)}</div>{!completedRequirements.length && <Empty text="No completed requirements found."/>}{completedRequirements.length > 0 && <Pagination page={visibleCompletedRequirementsPage} pageCount={completedRequirementsPageCount} onPageChange={setCompletedRequirementsPage}/>}</section></>}
     </main>
+    {!isViewer && accessPanelOpen && <AccessPanel managedAccount={managedAccount} onSelect={username => {setManagedAccount(username); setSelected("dashboard"); setAccessPanelOpen(false);}} onClose={() => setAccessPanelOpen(false)}/>} 
     {modal && (modal.type === "subject" ? <SubjectModal subject={modal.subject} onSave={saveSubject} onDelete={deleteSubject} close={() => setModal(null)}/> : <Modal data={modal} subjects={subjects} onSaveSubject={saveSubject} onSaveItem={saveItem} close={() => setModal(null)}/>)}
     {profileEditing && <ProfileModal username={accountUsername} profile={profile} logo={logo} onSave={async form => {await saveProfile(form); localStorage.setItem(logoStorageKey, form.logo || "/sjit-logo.png"); setLogo(form.logo || "/sjit-logo.png");}} close={() => setProfileEditing(false)}/>} 
     {previewFile && <FilePreviewModal file={previewFile} close={() => {URL.revokeObjectURL(previewFile.previewUrl); setPreviewFile(null);}}/>}
@@ -324,6 +329,10 @@ function LegacyItemRow({x, onSubmit, onDelete, onEdit, showSubject}) { const rem
 function Empty({text}) { return <div className="empty"><FolderOpen size={30}/><b>{text}</b></div>; }
 function Pagination({page, pageCount, onPageChange}) { return <div style={{display: "flex", alignItems: "center", justifyContent: "center", gap: 10, paddingTop: 14, borderTop: "1px solid #edf0ee", marginTop: 4}}><button type="button" onClick={() => onPageChange(current => Math.max(1, current - 1))} disabled={page === 1} style={{border: "1px solid #d6e2dc", borderRadius: 5, background: "#fff", color: "#18794e", padding: "7px 10px", fontSize: 11}}>Previous</button><span style={{color: "#65676b", fontSize: 11}}>Page {page} of {pageCount}</span><button type="button" onClick={() => onPageChange(current => Math.min(pageCount, current + 1))} disabled={page === pageCount} style={{border: "1px solid #d6e2dc", borderRadius: 5, background: "#fff", color: "#18794e", padding: "7px 10px", fontSize: 11}}>Next</button></div>; }
 function ProfileAvatar({username, photo, large}) { return photo ? <img className={`profileAvatar profilePhoto ${large ? "large" : ""}`} src={photo} alt="Profile"/> : <span className={`profileAvatar ${large ? "large" : ""}`}>{getInitials(username)}</span>; }
+function AccessPanel({managedAccount, onSelect, onClose}) {
+  const [selectedAccount, setSelectedAccount] = useState(managedAccount || "BSBA-OM");
+  return <div className="overlay"><div className="modal accessPanel"><div className="modalHead"><div><h2>Account access</h2><span>Choose the account you want to manage.</span></div><button onClick={onClose} aria-label="Close account access"><X/></button></div><label>Account<select value={selectedAccount} onChange={event => setSelectedAccount(event.target.value)}><option value="BSBA-OM">BSBA-OM · View-only account</option></select></label><div className="accessNote"><LockKeyhole size={18}/><p>Subjects and requirements added while this workspace is open will belong to BSBA-OM. The account can view and download attached files, but cannot edit them.</p></div><div className="modalActions"><button onClick={onClose}>Cancel</button><button className="primary" onClick={() => onSelect(selectedAccount)}>Open workspace</button></div></div></div>;
+}
 function ProfileModal({username, profile, logo, onSave, close}) {
   const [form, setForm] = useState({displayName: profile.displayName || "", currentPassword: "", newPassword: "", confirmPassword: "", photo: profile.photo || "", logo: logo || "/sjit-logo.png"});
   const [error, setError] = useState("");
