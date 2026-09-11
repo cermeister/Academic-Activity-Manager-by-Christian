@@ -19,6 +19,7 @@ const sortByDeadlineAndPriority = (a, b) => a.deadline.localeCompare(b.deadline)
 const profileStorageKey = username => `studyflow-profile-${username}`;
 const logoStorageKey = "studyflow-application-logo";
 const passwordStorageKey = username => `studyflow-password-${username}`;
+const viewerUsername = import.meta.env.VITE_VIEWER_USERNAME || import.meta.env.VITE_APP_USERNAME_2;
 const getStoredProfile = username => {if (!username) return {displayName: "", photo: ""}; try {return {...{displayName: "", photo: ""}, ...JSON.parse(localStorage.getItem(profileStorageKey(username)) || "{}")};} catch {return {displayName: "", photo: ""};}};
 const getStoredLogo = () => localStorage.getItem(logoStorageKey) || "/sjit-logo.png";
 const getInitials = value => value.split(/\s+/).filter(Boolean).map(part => part[0]).join("").slice(0, 2).toUpperCase() || "U";
@@ -50,6 +51,7 @@ function App() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileEditing, setProfileEditing] = useState(false);
   const [profile, setProfile] = useState(() => getStoredProfile(accountUsername));
+  const isViewer = profile.role === "viewer" || accountUsername === viewerUsername;
   const [logo, setLogo] = useState(getStoredLogo);
   const [upcomingPage, setUpcomingPage] = useState(1);
   const [allRequirementsPage, setAllRequirementsPage] = useState(1);
@@ -66,7 +68,7 @@ function App() {
         supabase.from("subject_sections").select("*").eq("account_username", accountUsername).order("sort_order"),
         supabase.from("subjects").select("*").eq("account_username", accountUsername).order("sort_order"),
         supabase.from("requirements").select("*").eq("account_username", accountUsername).order("deadline"),
-        supabase.from("account_profiles").select("display_name, photo_data_url").eq("username", accountUsername).maybeSingle()
+        supabase.from("account_profiles").select("display_name, photo_data_url, role").eq("username", accountUsername).maybeSingle()
       ]);
       if (!active) return;
       if (sectionResult.error || subjectResult.error || itemResult.error || profileResult.error) setDataError(sectionResult.error?.message || subjectResult.error?.message || itemResult.error?.message || profileResult.error?.message || "Could not load your workspace.");
@@ -75,7 +77,7 @@ function App() {
         setSections(normalized.sections);
         setSubjects(normalized.subjects);
         setItems(itemResult.data.map(mapItem));
-        if (profileResult.data) setProfile({displayName: profileResult.data.display_name || "", photo: profileResult.data.photo_data_url || ""});
+        if (profileResult.data) setProfile({displayName: profileResult.data.display_name || "", photo: profileResult.data.photo_data_url || "", role: profileResult.data.role || "admin"});
       }
       setLoading(false);
     };
@@ -122,18 +124,21 @@ function App() {
   const visibleCompletedRequirements = completedRequirements.slice((visibleCompletedRequirementsPage - 1) * 5, visibleCompletedRequirementsPage * 5);
 
   const updateStatus = async (id, status) => {
+    if (isViewer) return;
     const submittedAt = status === "Completed" ? new Date().toISOString() : null;
     const {data, error} = await supabase.from("requirements").update({status, submitted_at: submittedAt}).eq("id", id).eq("account_username", accountUsername).select().single();
     if (error) return setDataError(error.message);
     setItems(current => current.map(item => item.id === id ? mapItem(data) : item));
   };
   const remove = async id => {
+    if (isViewer) return;
     if (!confirm("Delete this requirement?")) return;
     const {error} = await supabase.from("requirements").delete().eq("id", id).eq("account_username", accountUsername);
     if (error) return setDataError(error.message);
     setItems(current => current.filter(item => item.id !== id));
   };
   const saveSubject = async form => {
+    if (isViewer) return;
     const fallbackSectionId = sections[0]?.id || DEFAULT_SECTION.id;
     const sectionId = form.sectionId || fallbackSectionId;
     const payload = {account_username: accountUsername, name: form.name.trim(), code: form.code.trim() || null, color: form.color, instructor: form.instructor.trim() || null, section_id: sectionId, sort_order: form.sortOrder ?? subjects.filter(subject => subject.sectionId === sectionId).length};
@@ -144,6 +149,7 @@ function App() {
     setSubjects(current => form.id ? current.map(item => item.id === form.id ? nextSubject : item) : [...current, nextSubject]);
   };
   const deleteSubject = async subject => {
+    if (isViewer) return;
     if (!subject?.id || !confirm(`Delete ${subject.name}? Its requirements will also be deleted.`)) return;
     const {error} = await supabase.from("subjects").delete().eq("id", subject.id).eq("account_username", accountUsername);
     if (error) return setDataError(error.message);
@@ -153,6 +159,7 @@ function App() {
     setModal(null);
   };
   const renameSection = async (section, name) => {
+    if (isViewer) return;
     const cleanName = name.trim();
     if (!cleanName || cleanName === section.name) return;
     const {error} = await supabase.from("subject_sections").update({name: cleanName}).eq("id", section.id).eq("account_username", accountUsername);
@@ -160,6 +167,7 @@ function App() {
     setSections(current => current.map(item => item.id === section.id ? {...item, name: cleanName} : item));
   };
   const moveSubject = async (subjectId, sectionId, beforeSubjectId = null) => {
+    if (isViewer) return;
     const moving = subjects.find(subject => subject.id === subjectId);
     if (!moving) return;
     const nextSubjects = subjects.filter(subject => subject.id !== subjectId);
@@ -182,6 +190,7 @@ function App() {
     }).concat({...moving, sectionId, sortOrder: sectionSubjects.findIndex(subject => subject.id === moving.id)}));
   };
   const saveItem = async form => {
+    if (isViewer) return;
     const selectedFiles = [...(document.querySelector('input[type="file"]')?.files || [])];
     const uploadedFiles = await Promise.all(selectedFiles.map(file => new Promise((resolve, reject) => {const reader = new FileReader(); reader.onload = () => resolve({name: file.name, size: file.size, type: file.type, dataUrl: reader.result}); reader.onerror = reject; reader.readAsDataURL(file);}))); 
     const existingFiles = (form.files || []).filter(file => !selectedFiles.some(selectedFile => selectedFile.name === file.name));
@@ -193,6 +202,7 @@ function App() {
   };
   const logout = () => {localStorage.removeItem("studyflow-account"); setAccountUsername(""); setAuthenticated(false); setMobileNavOpen(false); setProfileOpen(false);};
   const saveProfile = async ({displayName, photo, newPassword}) => {
+    if (isViewer) return;
     const nextProfile = {displayName: displayName.trim(), photo: photo || ""};
     const passwordHash = newPassword ? await hashPassword(newPassword) : undefined;
     const payload = {username: accountUsername, display_name: nextProfile.displayName, photo_data_url: nextProfile.photo, ...(passwordHash ? {password_hash: passwordHash} : {})};
@@ -206,7 +216,7 @@ function App() {
 
   if (!authenticated) return <Login logo={logo} onLogin={(username, remoteProfile) => {localStorage.setItem("studyflow-account", username); setAccountUsername(username); setProfile(remoteProfile || getStoredProfile(username)); setAuthenticated(true);}}/>;
 
-  return <div className={`app ${mobileNavOpen ? "navOpen" : ""}`}>
+  return <div className={`app ${mobileNavOpen ? "navOpen" : ""} ${isViewer ? "viewerMode" : ""}`}>
     <button className="mobileMenu" onClick={() => setMobileNavOpen(true)} aria-label="Open navigation"><Menu size={21}/></button>
     <button className="navBackdrop" onClick={() => setMobileNavOpen(false)} aria-label="Close navigation"/>
     <aside className="sidebar">
@@ -214,8 +224,8 @@ function App() {
       <div className="brand"><div className="brandIcon"><img src={logo} alt="Saint Joseph Institute of Technology logo"/></div><div><b>Saint Joseph Institute of Technology - ETEEAP 2026-2027</b><span>All rights reserved to cermeister</span></div></div>
       <button className={`nav ${selected === "dashboard" ? "active" : ""}`} onClick={() => {setSelected("dashboard"); setMobileNavOpen(false);}}><LayoutDashboard size={18}/>Dashboard</button>
       <div className="sideTitle">SUBJECTS</div>
-      <SubjectSections sections={sections} subjects={subjects} selected={selected} onSelect={id => {setSelected(id); setMobileNavOpen(false);}} onRename={renameSection} onMove={moveSubject} onEdit={subject => {setModal({type: "subject", subject}); setMobileNavOpen(false);}}/>
-      <button className="addSubject" onClick={() => {setModal({type: "subject"}); setMobileNavOpen(false);}}><Plus size={17}/> Add Subject</button>
+      <SubjectSections readOnly={isViewer} sections={sections} subjects={subjects} selected={selected} onSelect={id => {setSelected(id); setMobileNavOpen(false);}} onRename={renameSection} onMove={moveSubject} onEdit={subject => {setModal({type: "subject", subject}); setMobileNavOpen(false);}}/>
+      {!isViewer && <button className="addSubject" onClick={() => {setModal({type: "subject"}); setMobileNavOpen(false);}}><Plus size={17}/> Add Subject</button>}
       <div className="sidebarBottom"><div className="tip"><Clock3 size={17}/><div><b>Stay ahead</b><p>Complete tasks before they turn red.</p></div></div></div>
     </aside>
     <main>
@@ -243,13 +253,13 @@ function LoginWithAccounts({logo, onLogin}) {
     setError("");
     const credentials = [[import.meta.env.VITE_APP_USERNAME, import.meta.env.VITE_APP_PASSWORD], [import.meta.env.VITE_APP_USERNAME_2, import.meta.env.VITE_APP_PASSWORD_2]];
     const validAccount = credentials.some(([validUsername]) => username === validUsername);
-    const {data: remoteProfile, error: profileError} = await supabase.from("account_profiles").select("display_name, photo_data_url, password_hash").eq("username", username).maybeSingle();
+    const {data: remoteProfile, error: profileError} = await supabase.from("account_profiles").select("display_name, photo_data_url, password_hash, role").eq("username", username).maybeSingle();
     if (profileError) return setError("Could not connect to your account. Please try again.");
     const hashedPassword = remoteProfile?.password_hash;
     const validPassword = hashedPassword ? hashedPassword === await hashPassword(password) : credentials.some(([validUsername, validPassword]) => username === validUsername && password === validPassword);
     if (!validAccount || !validPassword) return setError("That username or password is not correct.");
     const localProfile = getStoredProfile(username);
-    const profile = {displayName: remoteProfile?.display_name || localProfile.displayName || "", photo: remoteProfile?.photo_data_url || localProfile.photo || ""};
+    const profile = {displayName: remoteProfile?.display_name || localProfile.displayName || "", photo: remoteProfile?.photo_data_url || localProfile.photo || "", role: remoteProfile?.role || (username === viewerUsername ? "viewer" : "admin")};
     const passwordHash = hashedPassword || await hashPassword(password);
     await supabase.from("account_profiles").upsert({username, display_name: profile.displayName, photo_data_url: profile.photo, password_hash: passwordHash}, {onConflict: "username"});
     onLogin(username, profile);
