@@ -211,10 +211,7 @@ function App() {
   };
   const saveItem = async form => {
     if (isViewer) return;
-    const selectedFiles = [...(document.querySelector('input[type="file"]')?.files || [])];
-    const uploadedFiles = await Promise.all(selectedFiles.map(file => new Promise((resolve, reject) => {const reader = new FileReader(); reader.onload = () => resolve({name: file.name, size: file.size, type: file.type, dataUrl: reader.result}); reader.onerror = reject; reader.readAsDataURL(file);}))); 
-    const existingFiles = (form.files || []).filter(file => !selectedFiles.some(selectedFile => selectedFile.name === file.name));
-    const payload = {account_username: workspaceUsername, subject_id: form.subjectId, category: form.category, title: form.title.trim(), description: form.description.trim() || null, deadline: form.deadline || null, priority: form.priority, status: form.status || "Pending", submitted_at: form.submittedAt || null, files: [...existingFiles, ...uploadedFiles]};
+    const payload = {account_username: workspaceUsername, subject_id: form.subjectId, category: form.category, title: form.title.trim(), description: form.description.trim() || null, deadline: form.deadline || null, priority: form.priority, status: form.status || "Pending", submitted_at: form.submittedAt || null, files: form.files || []};
     const result = form.id ? await supabase.from("requirements").update(payload).eq("id", form.id).eq("account_username", workspaceUsername).select().single() : await supabase.from("requirements").insert(payload).select().single();
     if (result.error) throw new Error(result.error.message);
     const item = mapItem(result.data);
@@ -386,8 +383,13 @@ function RequirementModal({data, subjects, onSaveItem, close}) {
     try { await onSaveItem(form); close(); } catch (saveError) { setError(saveError.message); } finally { setSaving(false); }
   };
   const fileChange = event => {
-    const files = [...event.target.files].map(file => ({name: file.name, size: file.size, type: file.type}));
-    setForm(current => ({...current, files: [...(current.files || []), ...files]}));
+    const selectedFiles = [...event.target.files];
+    Promise.all(selectedFiles.map(file => new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve({name: file.name, size: file.size, type: file.type, dataUrl: reader.result});
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    }))).then(uploadedFiles => setForm(current => ({...current, files: [...(current.files || []).filter(existing => !uploadedFiles.some(file => file.name === existing.name)), ...uploadedFiles]}))).catch(() => setError("Could not read one of the selected files."));
   };
   return <div className="overlay"><div className="modal"><div className="modalHead"><h2>{old ? "Edit Requirement" : "Add Requirement"}</h2><button onClick={close} aria-label="Close requirement form"><X/></button></div><label>Subject<select value={form.subjectId} onChange={event => setForm({...form, subjectId: event.target.value})}>{subjects.map(subject => <option key={subject.id} value={subject.id}>{subject.name}</option>)}</select></label><label>Category<select value={form.category} onChange={event => setForm({...form, category: event.target.value})}>{["Module", "Task", "Activity", "Others"].map(category => <option key={category}>{category}</option>)}</select></label><label>Title<input value={form.title} onChange={event => setForm({...form, title: event.target.value})}/></label><label>Description<textarea value={form.description} onChange={event => setForm({...form, description: event.target.value})}/></label><div className="two"><label>Deadline<input type="date" value={form.deadline} disabled={!form.deadline} onChange={event => setForm({...form, deadline: event.target.value})}/><span className="noDeadlineToggle"><input type="checkbox" checked={!form.deadline} onChange={event => setForm({...form, deadline: event.target.checked ? "" : new Date().toISOString().slice(0, 10)})}/> No deadline</span></label><label>Priority<select value={form.priority} onChange={event => setForm({...form, priority: event.target.value})}>{["Low", "Medium", "High"].map(priority => <option key={priority}>{priority}</option>)}</select></label></div><label className="upload"><Upload size={18}/> Attach files<input type="file" multiple onChange={fileChange}/></label>{form.files?.length > 0 && <div className="fileList">{form.files.map((file, index) => <span key={index}>{file.name}</span>)}</div>}{error && <p className="loginError" role="alert">{error}</p>}<div className="modalActions"><button onClick={close}>Cancel</button><button className="primary" onClick={save} disabled={saving}>{saving ? "Saving..." : "Save"}</button></div></div></div>;
 }
