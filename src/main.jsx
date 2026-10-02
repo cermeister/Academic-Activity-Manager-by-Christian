@@ -84,6 +84,10 @@ function App() {
     let active = true;
     const loadData = async () => {
       setLoading(true);
+      setDataError("");
+      setSections([]);
+      setSubjects([]);
+      setItems([]);
       const [sectionResult, subjectResult, itemResult, profileResult] = await Promise.all([
         supabase.from("subject_sections").select("*").eq("account_username", workspaceUsername).order("sort_order"),
         supabase.from("subjects").select("*").eq("account_username", workspaceUsername).order("sort_order"),
@@ -91,14 +95,19 @@ function App() {
         supabase.from("account_profiles").select("display_name, photo_data_url, role").eq("username", accountUsername).maybeSingle()
       ]);
       if (!active) return;
-      if (sectionResult.error || subjectResult.error || itemResult.error || profileResult.error) setDataError(sectionResult.error?.message || subjectResult.error?.message || itemResult.error?.message || profileResult.error?.message || "Could not load your workspace.");
+      const errors = [];
+      if (sectionResult.error) errors.push(`Subject sections: ${sectionResult.error.message}`);
+      else setSections(normalizeSectionState(sectionResult.data, []).sections);
+      if (subjectResult.error) errors.push(`Subjects: ${subjectResult.error.message}`);
       else {
         const normalized = normalizeSectionState(sectionResult.data, subjectResult.data);
-        setSections(normalized.sections);
         setSubjects(normalized.subjects);
-        setItems(itemResult.data.map(mapItem));
-        if (profileResult.data) setProfile({displayName: profileResult.data.display_name || "", photo: profileResult.data.photo_data_url || "", role: profileResult.data.role || "admin"});
       }
+      if (itemResult.error) errors.push(`Requirements: ${itemResult.error.message}`);
+      else setItems((itemResult.data || []).map(mapItem));
+      if (profileResult.error) errors.push(`Profile: ${profileResult.error.message}`);
+      else if (profileResult.data) setProfile({displayName: profileResult.data.display_name || "", photo: profileResult.data.photo_data_url || "", role: profileResult.data.role || "admin"});
+      if (errors.length) setDataError(errors.join(" | "));
       setLoading(false);
     };
     loadData();
